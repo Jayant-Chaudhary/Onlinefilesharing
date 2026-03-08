@@ -1,0 +1,1083 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SecureDrop — Auth</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --bg: #060608;
+        --surface: #0e0e14;
+        --surface2: #16161f;
+        --border: #1e1e2e;
+        --border2: #2a2a3d;
+        --accent: #00ff9d;
+        --accent-dim: rgba(0, 255, 157, 0.12);
+        --accent-glow: rgba(0, 255, 157, 0.35);
+        --red: #ff4060;
+        --blue: #4da6ff;
+        --text: #dde0f0;
+        --muted: #555570;
+        --mono: "Space Mono", monospace;
+        --display: "Bebas Neue", cursive;
+        --body: "DM Sans", sans-serif;
+      }
+
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--body);
+        overflow: hidden;
+      }
+
+      /* ── Animated background ── */
+      canvas#bg {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        opacity: 0.4;
+      }
+
+      /* ── Scanlines overlay ── */
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 0, 0, 0.08) 2px,
+          rgba(0, 0, 0, 0.08) 4px
+        );
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      /* ── Layout ── */
+      .shell {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: 1fr 480px;
+        height: 100vh;
+      }
+
+      /* ── Left panel ── */
+      .left {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 48px 56px;
+        border-right: 1px solid var(--border);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .wordmark {
+        font-family: var(--display);
+        font-size: clamp(5rem, 10vw, 9rem);
+        line-height: 0.9;
+        letter-spacing: 0.02em;
+        color: var(--text);
+        mix-blend-mode: normal;
+      }
+      .wordmark em {
+        color: var(--accent);
+        font-style: normal;
+        display: block;
+        text-shadow: 0 0 60px var(--accent-glow);
+      }
+
+      .tagline {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--muted);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-top: 24px;
+        line-height: 2;
+        border-left: 2px solid var(--accent);
+        padding-left: 16px;
+      }
+
+      .status-dots {
+        display: flex;
+        gap: 8px;
+        margin-top: 40px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+        animation: blink 2.4s infinite;
+      }
+      .dot:nth-child(2) {
+        background: var(--blue);
+        animation-delay: 0.8s;
+      }
+      .dot:nth-child(3) {
+        background: var(--muted);
+        animation-delay: 1.6s;
+      }
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.2;
+        }
+      }
+
+      /* decorative corner marks */
+      .corner {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-color: var(--border2);
+        border-style: solid;
+      }
+      .corner-tl {
+        top: 24px;
+        left: 24px;
+        border-width: 1px 0 0 1px;
+      }
+      .corner-br {
+        bottom: 24px;
+        right: 24px;
+        border-width: 0 1px 1px 0;
+      }
+
+      /* ── Right panel ── */
+      .right {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 48px 44px;
+        background: var(--surface);
+        position: relative;
+        overflow-y: auto;
+      }
+
+      /* Mode switcher */
+      .mode-bar {
+        display: flex;
+        gap: 0;
+        background: var(--bg);
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 36px;
+      }
+      .mode-btn {
+        flex: 1;
+        padding: 11px;
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+      }
+      .mode-btn.active {
+        color: var(--accent);
+        background: var(--accent-dim);
+      }
+      .mode-btn.active::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--accent);
+      }
+
+      /* Form panels */
+      .form-panel {
+        display: none;
+        animation: slideIn 0.25s ease;
+      }
+      .form-panel.active {
+        display: block;
+      }
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateX(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      .form-title {
+        font-family: var(--display);
+        font-size: 2.4rem;
+        letter-spacing: 0.04em;
+        margin-bottom: 6px;
+      }
+      .form-sub {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+        margin-bottom: 28px;
+      }
+
+      /* Google button */
+      .google-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 13px;
+        background: var(--surface2);
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: var(--body);
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 24px;
+      }
+      .google-btn:hover {
+        border-color: var(--blue);
+        background: rgba(77, 166, 255, 0.06);
+        transform: translateY(-1px);
+      }
+      .google-icon {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+      }
+
+      /* Divider */
+      .or-line {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+      .or-line::before,
+      .or-line::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border2);
+      }
+      .or-line span {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+      }
+
+      /* Fields */
+      .field {
+        margin-bottom: 16px;
+      }
+      .field label {
+        display: block;
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      .field-wrap {
+        position: relative;
+      }
+      .field-wrap input {
+        width: 100%;
+        padding: 13px 16px 13px 44px;
+        background: var(--bg);
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        outline: none;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .field-wrap input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(0, 255, 157, 0.08);
+      }
+      .field-wrap input::placeholder {
+        color: var(--muted);
+      }
+      .field-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1rem;
+        pointer-events: none;
+        opacity: 0.5;
+      }
+      .eye-toggle {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 0.9rem;
+        padding: 4px;
+        transition: color 0.2s;
+      }
+      .eye-toggle:hover {
+        color: var(--accent);
+      }
+
+      /* Password strength */
+      .strength-bar {
+        height: 3px;
+        background: var(--border2);
+        border-radius: 2px;
+        margin-top: 8px;
+        overflow: hidden;
+        display: none;
+      }
+      .strength-fill {
+        height: 100%;
+        border-radius: 2px;
+        transition:
+          width 0.3s,
+          background 0.3s;
+      }
+      .strength-label {
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        margin-top: 4px;
+        display: none;
+      }
+
+      /* Submit button */
+      .submit-btn {
+        width: 100%;
+        padding: 14px;
+        background: var(--accent);
+        color: #000;
+        border: none;
+        border-radius: 8px;
+        font-family: var(--display);
+        font-size: 1.3rem;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-top: 8px;
+        position: relative;
+        overflow: hidden;
+      }
+      .submit-btn::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.15),
+          transparent
+        );
+        transform: translateX(-100%);
+        transition: transform 0.5s;
+      }
+      .submit-btn:hover::before {
+        transform: translateX(100%);
+      }
+      .submit-btn:hover {
+        background: #00e88c;
+        box-shadow: 0 0 32px rgba(0, 255, 157, 0.4);
+        transform: translateY(-1px);
+      }
+      .submit-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      /* Error / success messages */
+      .msg {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        padding: 10px 14px;
+        border-radius: 6px;
+        margin-bottom: 16px;
+        display: none;
+        line-height: 1.6;
+      }
+      .msg.err {
+        background: rgba(255, 64, 96, 0.1);
+        border: 1px solid rgba(255, 64, 96, 0.3);
+        color: var(--red);
+      }
+      .msg.ok {
+        background: rgba(0, 255, 157, 0.08);
+        border: 1px solid rgba(0, 255, 157, 0.25);
+        color: var(--accent);
+      }
+      .msg.show {
+        display: block;
+      }
+
+      /* Token display after login */
+      .token-card {
+        background: var(--bg);
+        border: 1px solid var(--border2);
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 16px;
+        display: none;
+      }
+      .token-card.show {
+        display: block;
+      }
+      .token-label {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      .token-value {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--accent);
+        word-break: break-all;
+        line-height: 1.6;
+        margin-bottom: 10px;
+      }
+      .token-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .mini-btn {
+        padding: 6px 12px;
+        background: var(--surface2);
+        border: 1px solid var(--border2);
+        border-radius: 5px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        letter-spacing: 0.04em;
+      }
+      .mini-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      /* Loading spinner inside button */
+      .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(0, 0, 0, 0.3);
+        border-top-color: #000;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        vertical-align: middle;
+        margin-right: 6px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+        .left {
+          display: none;
+        }
+        .right {
+          padding: 32px 24px;
+        }
+      }
+
+      /* ── Google one-tap container ── */
+      #g_id_onload {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Animated particle canvas -->
+    <canvas id="bg"></canvas>
+
+    <div class="shell">
+      <!-- Left branding panel -->
+      <div class="left">
+        <div class="corner corner-tl"></div>
+        <div class="corner corner-br"></div>
+
+        <div class="wordmark">SECURE<em>DROP</em></div>
+        <div class="tagline">
+          End-to-end encrypted<br />
+          AES-256-GCM · Zero knowledge<br />
+          Your server sees nothing
+        </div>
+        <div class="status-dots">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
+      </div>
+
+      <!-- Right auth panel -->
+      <div class="right">
+        <!-- Mode tabs -->
+        <div class="mode-bar">
+          <button
+            class="mode-btn active"
+            id="tab-login"
+            onclick="setMode('login')"
+          >
+            // LOGIN
+          </button>
+          <button
+            class="mode-btn"
+            id="tab-register"
+            onclick="setMode('register')"
+          >
+            // REGISTER
+          </button>
+        </div>
+
+        <!-- ── LOGIN ── -->
+        <div class="form-panel active" id="fp-login">
+          <div class="form-title">SIGN IN</div>
+          <div class="form-sub">// AUTHENTICATE TO ACCESS VAULT</div>
+
+          <div class="msg" id="login-msg"></div>
+
+          <!-- Google OAuth button -->
+          <button class="google-btn" onclick="googleLogin()">
+            <svg class="google-icon" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              />
+            </svg>
+            Continue with Google
+          </button>
+
+          <div class="or-line"><span>OR</span></div>
+
+          <div class="field">
+            <label>Email</label>
+            <div class="field-wrap">
+              <span class="field-icon">✉</span>
+              <input
+                type="email"
+                id="login-email"
+                placeholder="you@example.com"
+                autocomplete="email"
+              />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Password</label>
+            <div class="field-wrap">
+              <span class="field-icon">🔑</span>
+              <input
+                type="password"
+                id="login-pwd"
+                placeholder="••••••••"
+                autocomplete="current-password"
+              />
+              <button
+                class="eye-toggle"
+                onclick="togglePwd('login-pwd', this)"
+                tabindex="-1"
+              >
+                👁
+              </button>
+            </div>
+          </div>
+
+          <button class="submit-btn" id="login-btn" onclick="doLogin()">
+            LOGIN
+          </button>
+
+          <div class="token-card" id="login-token">
+            <div class="token-label">Access Token — copy before navigating</div>
+            <div class="token-value" id="login-token-val"></div>
+            <div class="token-actions">
+              <button class="mini-btn" onclick="copyToken()">COPY TOKEN</button>
+              <button class="mini-btn" onclick="goToApp()">→ OPEN APP</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── REGISTER ── -->
+        <div class="form-panel" id="fp-register">
+          <div class="form-title">REGISTER</div>
+          <div class="form-sub">// CREATE A NEW VAULT ACCOUNT</div>
+
+          <div class="msg" id="register-msg"></div>
+
+          <button class="google-btn" onclick="googleLogin()">
+            <svg class="google-icon" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              />
+            </svg>
+            Sign up with Google
+          </button>
+
+          <div class="or-line"><span>OR</span></div>
+
+          <div class="field">
+            <label>Email</label>
+            <div class="field-wrap">
+              <span class="field-icon">✉</span>
+              <input
+                type="email"
+                id="reg-email"
+                placeholder="you@example.com"
+                autocomplete="email"
+              />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Password</label>
+            <div class="field-wrap">
+              <span class="field-icon">🔑</span>
+              <input
+                type="password"
+                id="reg-pwd"
+                placeholder="min 8 characters"
+                autocomplete="new-password"
+                oninput="checkStrength(this.value)"
+              />
+              <button
+                class="eye-toggle"
+                onclick="togglePwd('reg-pwd', this)"
+                tabindex="-1"
+              >
+                👁
+              </button>
+            </div>
+            <div class="strength-bar" id="strength-bar">
+              <div class="strength-fill" id="strength-fill"></div>
+            </div>
+            <div class="strength-label" id="strength-label"></div>
+          </div>
+
+          <div class="field">
+            <label>Confirm Password</label>
+            <div class="field-wrap">
+              <span class="field-icon">🔒</span>
+              <input
+                type="password"
+                id="reg-pwd2"
+                placeholder="repeat password"
+                autocomplete="new-password"
+              />
+            </div>
+          </div>
+
+          <button class="submit-btn" id="register-btn" onclick="doRegister()">
+            CREATE ACCOUNT
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <script>
+      // ══════════════════════════════════════════════════════════════════
+      // CONFIG
+      // ══════════════════════════════════════════════════════════════════
+      const BASE_URL = "http://localhost:5001/api";
+      const GOOGLE_CLIENT_ID =
+        "211701047276-9rnu6q6vaj77mocn4m97jpac7vcg6pd5.apps.googleusercontent.com"; // ← replace
+      const APP_URL = "index.html"; // main app page
+
+      // ══════════════════════════════════════════════════════════════════
+      // ANIMATED PARTICLE BACKGROUND
+      // ══════════════════════════════════════════════════════════════════
+      (function () {
+        const canvas = document.getElementById("bg");
+        const ctx = canvas.getContext("2d");
+        let W,
+          H,
+          nodes = [];
+
+        function resize() {
+          W = canvas.width = window.innerWidth;
+          H = canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener("resize", resize);
+
+        class Node {
+          constructor() {
+            this.reset();
+          }
+          reset() {
+            this.x = Math.random() * W;
+            this.y = Math.random() * H;
+            this.vx = (Math.random() - 0.5) * 0.4;
+            this.vy = (Math.random() - 0.5) * 0.4;
+            this.r = Math.random() * 1.5 + 0.5;
+          }
+          update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            if (this.x < 0 || this.x > W || this.y < 0 || this.y > H)
+              this.reset();
+          }
+          draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(0,255,157,0.6)";
+            ctx.fill();
+          }
+        }
+
+        for (let i = 0; i < 80; i++) nodes.push(new Node());
+
+        function frame() {
+          ctx.clearRect(0, 0, W, H);
+          nodes.forEach((n) => n.update());
+          // draw edges
+          for (let i = 0; i < nodes.length; i++) {
+            for (let j = i + 1; j < nodes.length; j++) {
+              const dx = nodes[i].x - nodes[j].x;
+              const dy = nodes[i].y - nodes[j].y;
+              const d = Math.sqrt(dx * dx + dy * dy);
+              if (d < 120) {
+                ctx.beginPath();
+                ctx.moveTo(nodes[i].x, nodes[i].y);
+                ctx.lineTo(nodes[j].x, nodes[j].y);
+                ctx.strokeStyle = `rgba(0,255,157,${0.15 * (1 - d / 120)})`;
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+              }
+            }
+          }
+          nodes.forEach((n) => n.draw());
+          requestAnimationFrame(frame);
+        }
+        frame();
+      })();
+
+      // ══════════════════════════════════════════════════════════════════
+      // TAB / MODE
+      // ══════════════════════════════════════════════════════════════════
+      function setMode(m) {
+        document
+          .querySelectorAll(".mode-btn")
+          .forEach((b) => b.classList.remove("active"));
+        document
+          .querySelectorAll(".form-panel")
+          .forEach((p) => p.classList.remove("active"));
+        document.getElementById("tab-" + m).classList.add("active");
+        document.getElementById("fp-" + m).classList.add("active");
+      }
+
+      // ══════════════════════════════════════════════════════════════════
+      // HELPERS
+      // ══════════════════════════════════════════════════════════════════
+      function showMsg(id, text, type) {
+        const el = document.getElementById(id);
+        el.className = "msg " + type + " show";
+        el.textContent = text;
+      }
+      function clearMsg(id) {
+        const el = document.getElementById(id);
+        el.className = "msg";
+        el.textContent = "";
+      }
+
+      function setLoading(btnId, loading, label) {
+        const btn = document.getElementById(btnId);
+        btn.disabled = loading;
+        btn.innerHTML = loading
+          ? `<span class="spinner"></span>${label}`
+          : label;
+      }
+
+      function togglePwd(inputId, btn) {
+        const inp = document.getElementById(inputId);
+        if (inp.type === "password") {
+          inp.type = "text";
+          btn.textContent = "🙈";
+        } else {
+          inp.type = "password";
+          btn.textContent = "👁";
+        }
+      }
+
+      function checkStrength(pwd) {
+        const bar = document.getElementById("strength-bar");
+        const fill = document.getElementById("strength-fill");
+        const label = document.getElementById("strength-label");
+        bar.style.display = "block";
+        label.style.display = "block";
+
+        let score = 0;
+        if (pwd.length >= 8) score++;
+        if (pwd.length >= 12) score++;
+        if (/[A-Z]/.test(pwd)) score++;
+        if (/[0-9]/.test(pwd)) score++;
+        if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
+        const levels = [
+          { pct: "20%", color: "#ff4060", text: "WEAK" },
+          { pct: "40%", color: "#ff8c42", text: "FAIR" },
+          { pct: "60%", color: "#ffd700", text: "MODERATE" },
+          { pct: "80%", color: "#90ee90", text: "STRONG" },
+          { pct: "100%", color: "#00ff9d", text: "EXCELLENT" },
+        ];
+        const lvl = levels[Math.min(score, 4)];
+        fill.style.width = lvl.pct;
+        fill.style.background = lvl.color;
+        label.style.color = lvl.color;
+        label.textContent = lvl.text;
+      }
+
+      function copyToken() {
+        const t = document.getElementById("login-token-val").textContent;
+        navigator.clipboard.writeText(t);
+        const btn = event.target;
+        btn.textContent = "COPIED!";
+        setTimeout(() => (btn.textContent = "COPY TOKEN"), 1500);
+      }
+
+      function goToApp() {
+        window.location.href = APP_URL;
+      }
+
+      // Persist token in sessionStorage so app page can pick it up
+      function saveToken(token) {
+        sessionStorage.setItem("sd_access_token", token);
+      }
+
+      // ══════════════════════════════════════════════════════════════════
+      // EMAIL/PASSWORD LOGIN
+      // ══════════════════════════════════════════════════════════════════
+      async function doLogin() {
+        clearMsg("login-msg");
+        const email = document.getElementById("login-email").value.trim();
+        const pwd = document.getElementById("login-pwd").value;
+
+        if (!email || !pwd)
+          return showMsg("login-msg", "Email and password required.", "err");
+
+        setLoading("login-btn", true, "AUTHENTICATING…");
+        try {
+          const res = await fetch(`${BASE_URL}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include", // send/receive cookies (refresh token)
+            body: JSON.stringify({ email, password: pwd }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || "Login failed");
+
+          saveToken(data.accessToken);
+          showMsg("login-msg", "✓ Authenticated successfully", "ok");
+          document.getElementById("login-token-val").textContent =
+            data.accessToken;
+          document.getElementById("login-token").classList.add("show");
+        } catch (e) {
+          showMsg("login-msg", e.message, "err");
+        } finally {
+          setLoading("login-btn", false, "LOGIN");
+        }
+      }
+
+      // ══════════════════════════════════════════════════════════════════
+      // EMAIL/PASSWORD REGISTER
+      // ══════════════════════════════════════════════════════════════════
+      async function doRegister() {
+        clearMsg("register-msg");
+        const email = document.getElementById("reg-email").value.trim();
+        const pwd = document.getElementById("reg-pwd").value;
+        const pwd2 = document.getElementById("reg-pwd2").value;
+
+        if (!email || !pwd)
+          return showMsg("register-msg", "All fields required.", "err");
+        if (pwd.length < 8)
+          return showMsg(
+            "register-msg",
+            "Password must be at least 8 characters.",
+            "err",
+          );
+        if (pwd !== pwd2)
+          return showMsg("register-msg", "Passwords do not match.", "err");
+
+        setLoading("register-btn", true, "CREATING ACCOUNT…");
+        try {
+          const res = await fetch(`${BASE_URL}/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password: pwd }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || "Registration failed");
+
+          showMsg("register-msg", "✓ Account created! Logging you in…", "ok");
+          // Auto-login after register
+          setTimeout(() => {
+            setMode("login");
+            document.getElementById("login-email").value = email;
+          }, 1200);
+        } catch (e) {
+          showMsg("register-msg", e.message, "err");
+        } finally {
+          setLoading("register-btn", false, "CREATE ACCOUNT");
+        }
+      }
+
+      // ══════════════════════════════════════════════════════════════════
+      // GOOGLE OAUTH — using Google Identity Services
+      // ══════════════════════════════════════════════════════════════════
+
+      // Called when Google returns a credential (ID token)
+      async function handleGoogleCredential(response) {
+        const idToken = response.credential;
+        try {
+          const res = await fetch(`${BASE_URL}/auth/google`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ idToken }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || "Google auth failed");
+
+          saveToken(data.accessToken);
+          showMsg("login-msg", `✓ Welcome! Signed in with Google`, "ok");
+          document.getElementById("login-token-val").textContent =
+            data.accessToken;
+          document.getElementById("login-token").classList.add("show");
+          setMode("login");
+        } catch (e) {
+          showMsg("login-msg", e.message, "err");
+          setMode("login");
+        }
+      }
+
+      // Manual trigger for the Google button
+      function googleLogin() {
+        if (typeof google === "undefined") {
+          alert(
+            "Google Identity Services not loaded. Check your CLIENT_ID and network.",
+          );
+          return;
+        }
+        google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCredential,
+          auto_select: false,
+        });
+        google.accounts.id.prompt();
+      }
+
+      // Also initialise on load (for One Tap if desired)
+      window.addEventListener("load", () => {
+        if (typeof google !== "undefined") {
+          google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleCredential,
+            auto_select: false,
+          });
+        }
+        // Auto-fill token if already in session
+        const existing = sessionStorage.getItem("sd_access_token");
+        if (existing) {
+          document.getElementById("login-token-val").textContent = existing;
+          document.getElementById("login-token").classList.add("show");
+          showMsg(
+            "login-msg",
+            "✓ Session token found — you can go to the app",
+            "ok",
+          );
+        }
+      });
+
+      // Enter key support
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          const mode = document
+            .getElementById("tab-login")
+            .classList.contains("active")
+            ? "login"
+            : "register";
+          mode === "login" ? doLogin() : doRegister();
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1038 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>SecureDrop — Vault</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+      :root {
+        --bg: #080810;
+        --s1: #0d0d18;
+        --s2: #13131f;
+        --s3: #1a1a28;
+        --bd: #22223a;
+        --bd2: #2d2d48;
+        --g: #00ff9d;
+        --gd: rgba(0, 255, 157, 0.08);
+        --gw: rgba(0, 255, 157, 0.25);
+        --amber: #f59e0b;
+        --red: #ef4444;
+        --blue: #60a5fa;
+        --purple: #a855f7;
+        --text: #e8eaf6;
+        --muted: #52526e;
+        --mono: "Space Mono", monospace;
+        --serif: "Instrument Serif", serif;
+        --sans: "DM Sans", sans-serif;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        min-height: 100vh;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: radial-gradient(
+          circle at 50% 0%,
+          rgba(0, 255, 157, 0.03) 0%,
+          transparent 40%
+        );
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 40px;
+        height: 58px;
+        background: rgba(8, 8, 16, 0.9);
+        border-bottom: 1px solid var(--bd);
+        backdrop-filter: blur(20px);
+      }
+      .logo {
+        font-family: var(--mono);
+        font-size: 0.9rem;
+        color: var(--g);
+        letter-spacing: 0.06em;
+      }
+      .logo span {
+        color: var(--muted);
+      }
+      .nav-r {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .nav-btn {
+        padding: 7px 14px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+      }
+      .nav-btn:hover,
+      .nav-btn.on {
+        background: var(--s2);
+        color: var(--text);
+      }
+      .user-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 12px 5px 5px;
+        background: var(--s2);
+        border: 1px solid var(--bd);
+        border-radius: 20px;
+      }
+      .avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--g);
+        color: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.62rem;
+        font-weight: 700;
+      }
+      .uname {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+      }
+
+      .page {
+        position: relative;
+        z-index: 1;
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 36px 24px;
+      }
+
+      /* Quota */
+      .quota {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        background: var(--s1);
+        border: 1px solid var(--bd);
+        border-radius: 14px;
+        padding: 18px 24px;
+        margin-bottom: 32px;
+      }
+      .qlabel {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .qbar {
+        flex: 1;
+        background: var(--s3);
+        border-radius: 4px;
+        height: 5px;
+        overflow: hidden;
+      }
+      .qfill {
+        height: 100%;
+        border-radius: 4px;
+        background: var(--g);
+        transition: width 0.6s ease;
+      }
+      .qfill.warn {
+        background: var(--amber);
+      }
+      .qfill.danger {
+        background: var(--red);
+      }
+      .qtext {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        white-space: nowrap;
+      }
+
+      /* Header */
+      .sec-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+      }
+      .sec-title {
+        font-family: var(--serif);
+        font-size: 2rem;
+        font-style: italic;
+      }
+      .new-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: var(--g);
+        color: #000;
+        border: none;
+        border-radius: 10px;
+        font-family: var(--sans);
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+      }
+      .new-btn:hover {
+        background: #00e88c;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px var(--gw);
+      }
+
+      /* Grid */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+        gap: 14px;
+      }
+
+      /* Card */
+      .card {
+        background: var(--s1);
+        border: 1px solid var(--bd);
+        border-radius: 16px;
+        padding: 20px;
+        transition:
+          border-color 0.2s,
+          transform 0.2s;
+        position: relative;
+        overflow: hidden;
+        cursor: default;
+        animation: cardIn 0.35s ease backwards;
+      }
+      .card:hover {
+        border-color: var(--bd2);
+        transform: translateY(-2px);
+      }
+      .card.expired {
+        opacity: 0.45;
+      }
+      @keyframes cardIn {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* top stripe per share type */
+      .card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .card:hover::before {
+        opacity: 1;
+      }
+      .card[data-share="private"]::before {
+        background: var(--muted);
+      }
+      .card[data-share="public"]::before {
+        background: var(--blue);
+      }
+      .card[data-share="domain"]::before {
+        background: var(--amber);
+      }
+
+      .card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .ficon {
+        font-size: 1.8rem;
+      }
+      .badge {
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        letter-spacing: 0.08em;
+        padding: 3px 8px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+      .badge-private {
+        background: rgba(82, 82, 110, 0.15);
+        color: var(--muted);
+        border: 1px solid var(--bd2);
+      }
+      .badge-public {
+        background: rgba(96, 165, 250, 0.12);
+        color: var(--blue);
+        border: 1px solid rgba(96, 165, 250, 0.25);
+      }
+      .badge-domain {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--amber);
+        border: 1px solid rgba(245, 158, 11, 0.25);
+      }
+      .badge-expired {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--red);
+        border: 1px solid rgba(239, 68, 68, 0.25);
+      }
+
+      .fname {
+        font-weight: 600;
+        font-size: 0.95rem;
+        margin-bottom: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .fmeta {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+      .dtag {
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        background: rgba(245, 158, 11, 0.07);
+        color: var(--amber);
+        padding: 2px 7px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        display: inline-block;
+      }
+
+      /* countdown */
+      .cd {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 16px;
+        font-family: var(--mono);
+        font-size: 0.68rem;
+      }
+      .cdv {
+        color: var(--g);
+      }
+      .cdv.warn {
+        color: var(--amber);
+      }
+      .cdv.crit {
+        color: var(--red);
+        animation: flicker 1s infinite;
+      }
+      @keyframes flicker {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      /* actions */
+      .acts {
+        display: flex;
+        gap: 6px;
+      }
+      .act {
+        flex: 1;
+        padding: 8px 6px;
+        background: var(--s2);
+        border: 1px solid var(--bd);
+        border-radius: 8px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        cursor: pointer;
+        transition: all 0.15s;
+        text-align: center;
+        letter-spacing: 0.04em;
+      }
+      .act:hover {
+        border-color: var(--g);
+        color: var(--g);
+      }
+      .act.danger:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+
+      /* Empty */
+      .empty {
+        grid-column: 1/-1;
+        text-align: center;
+        padding: 80px 24px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        line-height: 2.2;
+      }
+      .empty-icon {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 12px;
+      }
+
+      /* Skeleton */
+      .skel {
+        border-radius: 16px;
+        height: 200px;
+        background: linear-gradient(
+          90deg,
+          var(--s1) 25%,
+          var(--s2) 50%,
+          var(--s1) 75%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.4s infinite;
+      }
+      @keyframes shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+
+      /* Modal */
+      .backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(8px);
+        z-index: 200;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+      }
+      .backdrop.open {
+        opacity: 1;
+        pointer-events: all;
+      }
+      .modal {
+        background: var(--s1);
+        border: 1px solid var(--bd2);
+        border-radius: 20px;
+        padding: 28px;
+        width: min(440px, 92vw);
+        max-height: 88vh;
+        overflow-y: auto;
+        transform: scale(0.95);
+        transition: transform 0.2s;
+      }
+      .backdrop.open .modal {
+        transform: scale(1);
+      }
+      .modal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+      }
+      .modal-title {
+        font-family: var(--serif);
+        font-size: 1.4rem;
+        font-style: italic;
+      }
+      .modal-close {
+        background: none;
+        border: none;
+        color: var(--muted);
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 4px 8px;
+        transition: color 0.2s;
+        border-radius: 4px;
+      }
+      .modal-close:hover {
+        color: var(--text);
+        background: var(--s2);
+      }
+
+      /* QR in modal */
+      .qr-wrap {
+        display: flex;
+        justify-content: center;
+        margin: 16px 0;
+      }
+      #mQr {
+        background: #fff;
+        padding: 14px;
+        border-radius: 12px;
+        display: inline-block;
+      }
+      .qr-sub {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        text-align: center;
+        line-height: 1.8;
+      }
+
+      .link-box {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        background: var(--s2);
+        border: 1px solid var(--bd2);
+        border-radius: 10px;
+        padding: 10px 14px;
+        margin-top: 14px;
+      }
+      .link-val {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--g);
+        flex: 1;
+        word-break: break-all;
+        line-height: 1.6;
+      }
+      .cpbtn {
+        padding: 6px 12px;
+        background: var(--s1);
+        border: 1px solid var(--bd2);
+        border-radius: 6px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.2s;
+        flex-shrink: 0;
+      }
+      .cpbtn:hover {
+        border-color: var(--g);
+        color: var(--g);
+      }
+
+      /* Share modal */
+      .sm-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .smb {
+        padding: 12px 8px;
+        background: var(--s2);
+        border: 2px solid var(--bd);
+        border-radius: 10px;
+        color: var(--muted);
+        font-family: var(--sans);
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.2s;
+      }
+      .smb span {
+        display: block;
+        font-size: 1.2rem;
+        margin-bottom: 4px;
+      }
+      .smb.sp {
+        border-color: var(--muted);
+        color: var(--text);
+      }
+      .smb.su {
+        border-color: var(--blue);
+        color: var(--blue);
+        background: rgba(96, 165, 250, 0.07);
+      }
+      .smb.sd {
+        border-color: var(--amber);
+        color: var(--amber);
+        background: rgba(245, 158, 11, 0.07);
+      }
+      .dom-field {
+        display: none;
+        margin-bottom: 14px;
+      }
+      .dom-field.show {
+        display: block;
+      }
+      .dom-field label {
+        display: block;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 7px;
+      }
+      .dom-field input {
+        width: 100%;
+        padding: 10px 14px;
+        background: var(--bg);
+        border: 1px solid var(--bd2);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .dom-field input:focus {
+        border-color: var(--amber);
+      }
+      .share-hint {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        margin-bottom: 16px;
+        line-height: 1.7;
+      }
+      .save-btn {
+        width: 100%;
+        padding: 13px;
+        background: var(--g);
+        color: #000;
+        border: none;
+        border-radius: 8px;
+        font-family: var(--sans);
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .save-btn:hover {
+        background: #00e88c;
+      }
+
+      /* Toast */
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%) translateY(16px);
+        background: var(--s2);
+        border: 1px solid var(--bd2);
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        z-index: 999;
+        opacity: 0;
+        transition: all 0.25s;
+        pointer-events: none;
+        white-space: nowrap;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="logo">SECURE<span>DROP</span></div>
+      <div class="nav-r">
+        <a class="nav-btn" href="index.html">Send</a>
+        <a class="nav-btn" href="receive.html">Receive</a>
+        <a class="nav-btn on" href="dashboard.html">Vault</a>
+        <div class="user-pill">
+          <div class="avatar" id="av">?</div>
+          <span class="uname" id="uname">—</span>
+        </div>
+        <button class="nav-btn" onclick="logout()">out</button>
+      </div>
+    </nav>
+
+    <div class="page">
+      <!-- Quota -->
+      <div class="quota">
+        <div class="qlabel">Storage</div>
+        <div class="qbar">
+          <div class="qfill" id="qfill" style="width: 0%"></div>
+        </div>
+        <div class="qtext" id="qtext">— / 100 MB</div>
+      </div>
+
+      <!-- Files -->
+      <div class="sec-head">
+        <div class="sec-title">Your Vault</div>
+        <a class="new-btn" href="index.html">+ New File</a>
+      </div>
+      <div class="grid" id="grid">
+        <div class="skel"></div>
+        <div class="skel"></div>
+        <div class="skel"></div>
+      </div>
+    </div>
+
+    <!-- QR Modal -->
+    <div class="backdrop" id="qrModal">
+      <div class="modal">
+        <div class="modal-head">
+          <div class="modal-title">Share QR</div>
+          <button class="modal-close" onclick="closeModal('qrModal')">✕</button>
+        </div>
+        <div class="qr-wrap"><div id="mQr"></div></div>
+        <div class="qr-sub">
+          Receiver scans → opens receive page → auto-decrypts<br />
+          <strong style="color: var(--amber)"
+            >⚠ Link contains decryption key — share securely</strong
+          >
+        </div>
+        <div class="link-box">
+          <span class="link-val" id="mLink">—</span>
+          <button class="cpbtn" onclick="cp('mLink')">COPY</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Share Settings Modal -->
+    <div class="backdrop" id="shareModal">
+      <div class="modal">
+        <div class="modal-head">
+          <div class="modal-title">Share Settings</div>
+          <button class="modal-close" onclick="closeModal('shareModal')">
+            ✕
+          </button>
+        </div>
+        <div class="sm-grid">
+          <button class="smb" id="smb-private" onclick="pickShare('private')">
+            <span>🔒</span>Private
+          </button>
+          <button class="smb" id="smb-public" onclick="pickShare('public')">
+            <span>🌐</span>Public
+          </button>
+          <button class="smb" id="smb-domain" onclick="pickShare('domain')">
+            <span>🏢</span>Domain
+          </button>
+        </div>
+        <div class="dom-field" id="domField">
+          <label>Allowed Domain</label>
+          <input type="text" id="domInput" placeholder="e.g. iitk.ac.in" />
+        </div>
+        <div class="share-hint" id="shareHint">
+          Only you can access this file.
+        </div>
+        <button class="save-btn" onclick="saveShare()">Save</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      const BASE = "http://localhost:5001/api";
+      const APP = window.location.origin;
+      let tok = sessionStorage.getItem("sd_access_token") || "";
+      if (!tok) location.href = "login.html";
+
+      let curShareId = null,
+        curShareType = "private";
+      let cdTimers = {};
+
+      // ── Boot ──────────────────────────────────────────────────────────────────────
+      (async () => {
+        try {
+          const r = await api("/auth/me");
+          const { user } = await r.json();
+          document.getElementById("av").textContent = (user.name ||
+            user.email)[0].toUpperCase();
+          document.getElementById("uname").textContent =
+            user.email.split("@")[0];
+        } catch {}
+        loadFiles();
+      })();
+
+      async function logout() {
+        await fetch(`${BASE}/auth/logout`, {
+          method: "POST",
+          credentials: "include",
+        });
+        sessionStorage.clear();
+        location.href = "login.html";
+      }
+
+      // ── Load files ────────────────────────────────────────────────────────────────
+      async function loadFiles() {
+        const r = await api("/files/");
+        const { files, quota } = await r.json();
+
+        // Quota
+        const pct = Math.min(100, (quota.used / quota.total) * 100);
+        const f = document.getElementById("qfill");
+        f.style.width = pct + "%";
+        f.className =
+          "qfill" + (pct > 90 ? " danger" : pct > 70 ? " warn" : "");
+        document.getElementById("qtext").textContent =
+          `${fmtSize(quota.used)} / ${fmtSize(quota.total)}`;
+
+        // Grid
+        const grid = document.getElementById("grid");
+        grid.innerHTML = "";
+        if (!files.length) {
+          grid.innerHTML = `<div class="empty"><span class="empty-icon">🗄</span>No files yet.<br><a href="index.html" style="color:var(--g);text-decoration:none">Upload your first file →</a></div>`;
+          return;
+        }
+        files.forEach((f, i) => {
+          grid.appendChild(buildCard(f, i));
+          startCd(f.file_id, f.expires_at);
+        });
+      }
+
+      // ── Build card ────────────────────────────────────────────────────────────────
+      function buildCard(f, i) {
+        const expired = f.expires_at && new Date(f.expires_at) < new Date();
+        const el = document.createElement("div");
+        el.className = "card" + (expired ? " expired" : "");
+        el.dataset.share = f.share_type;
+        el.style.animationDelay = i * 0.06 + "s";
+        el.innerHTML = `
+    <div class="card-top">
+      <span class="ficon">${fIcon(f.original_name)}</span>
+      <span class="badge ${expired ? "badge-expired" : "badge-" + f.share_type}">${expired ? "EXPIRED" : f.share_type.toUpperCase()}</span>
+    </div>
+    <div class="fname" title="${esc(f.original_name)}">${esc(f.original_name)}</div>
+    <div class="fmeta"><span>${fmtSize(f.file_size)}</span><span>${fmtDate(f.created_at)}</span></div>
+    ${f.share_type === "domain" && f.share_domain ? `<div class="dtag">@${esc(f.share_domain)}</div>` : ""}
+    <div class="cd"><span>⏱</span><span class="cdv" id="cdv-${f.file_id}">…</span></div>
+    <div class="acts">
+      <button class="act" onclick="showQR('${f.file_id}')">QR</button>
+      <button class="act" onclick="openShare('${f.file_id}','${f.share_type}','${f.share_domain || ""}')">Share</button>
+      <button class="act danger" onclick="delFile('${f.file_id}',this)">Delete</button>
+    </div>`;
+        return el;
+      }
+
+      // ── QR — built from stored receive link ───────────────────────────────────────
+      // We ask the user for Kqr once (it was shown on the send page and should be saved).
+      // The link is reconstructed as APP/receive.html#fileId=xxx&kqr=yyy
+      function showQR(fileId) {
+        const kqr = prompt(
+          "Paste the Kqr (secret key) shown when you uploaded this file:",
+        );
+        if (!kqr) return;
+        const link = `${APP}/receive.html#fileId=${fileId}&kqr=${encodeURIComponent(kqr)}`;
+        document.getElementById("mQr").innerHTML = "";
+        new QRCode(document.getElementById("mQr"), {
+          text: link,
+          width: 200,
+          height: 200,
+          colorDark: "#000",
+          colorLight: "#fff",
+        });
+        document.getElementById("mLink").textContent = link;
+        openModal("qrModal");
+      }
+
+      // ── Share modal ───────────────────────────────────────────────────────────────
+      function openShare(id, type, domain) {
+        curShareId = id;
+        curShareType = type;
+        document.getElementById("domInput").value = domain || "";
+        pickShare(type, false);
+        openModal("shareModal");
+      }
+      const shareHints = {
+        private: "Only you can access.",
+        public: "Any logged-in user can download.",
+        domain: "Only matching email domain can download.",
+      };
+      function pickShare(t, save = false) {
+        curShareType = t;
+        ["private", "public", "domain"].forEach((x) => {
+          document.getElementById("smb-" + x).className =
+            "smb" +
+            (x === t
+              ? " s" + (t === "private" ? "p" : t === "public" ? "u" : "d")
+              : "");
+        });
+        document.getElementById("domField").className =
+          "dom-field" + (t === "domain" ? " show" : "");
+        document.getElementById("shareHint").textContent = shareHints[t];
+      }
+      async function saveShare() {
+        const domain = document.getElementById("domInput").value.trim();
+        if (curShareType === "domain" && !domain) {
+          toast("Enter a domain");
+          return;
+        }
+        try {
+          const r = await api(`/files/${curShareId}/share`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              share_type: curShareType,
+              share_domain: domain,
+            }),
+          });
+          if (!r.ok) throw new Error();
+          toast("Saved!");
+          closeModal("shareModal");
+          loadFiles();
+        } catch {
+          toast("Failed to save");
+        }
+      }
+
+      // ── Delete ────────────────────────────────────────────────────────────────────
+      async function delFile(id, btn) {
+        if (!confirm("Delete this file permanently?")) return;
+        btn.textContent = "…";
+        try {
+          const r = await api(`/files/${id}`, { method: "DELETE" });
+          if (!r.ok) throw new Error();
+          toast("Deleted");
+          loadFiles();
+        } catch {
+          toast("Delete failed");
+          btn.textContent = "Delete";
+        }
+      }
+
+      // ── Countdown ─────────────────────────────────────────────────────────────────
+      function startCd(id, expiresAt) {
+        if (!expiresAt) return;
+        const exp = new Date(expiresAt).getTime();
+        function tick() {
+          const el = document.getElementById("cdv-" + id);
+          if (!el) {
+            clearInterval(cdTimers[id]);
+            return;
+          }
+          const rem = exp - Date.now();
+          if (rem <= 0) {
+            el.textContent = "EXPIRED";
+            el.className = "cdv crit";
+            clearInterval(cdTimers[id]);
+            return;
+          }
+          const h = Math.floor(rem / 3600000),
+            m = Math.floor((rem % 3600000) / 60000),
+            s = Math.floor((rem % 60000) / 1000);
+          el.textContent = `${pad(h)}:${pad(m)}:${pad(s)} left`;
+          el.className = "cdv" + (h < 1 ? " crit" : h < 3 ? " warn" : "");
+        }
+        tick();
+        cdTimers[id] = setInterval(tick, 1000);
+      }
+      function pad(n) {
+        return String(n).padStart(2, "0");
+      }
+
+      // ── Modal ─────────────────────────────────────────────────────────────────────
+      function openModal(id) {
+        document.getElementById(id).classList.add("open");
+      }
+      function closeModal(id) {
+        document.getElementById(id).classList.remove("open");
+      }
+      document.querySelectorAll(".backdrop").forEach((b) =>
+        b.addEventListener("click", (e) => {
+          if (e.target === b) b.classList.remove("open");
+        }),
+      );
+
+      // ── Toast ─────────────────────────────────────────────────────────────────────
+      let toastT;
+      function toast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        clearTimeout(toastT);
+        toastT = setTimeout(() => t.classList.remove("show"), 2400);
+      }
+      function cp(id) {
+        navigator.clipboard.writeText(document.getElementById(id).textContent);
+        toast("Copied!");
+      }
+
+      // ── Helpers ───────────────────────────────────────────────────────────────────
+      function api(path, opts = {}) {
+        return fetch(BASE + path, {
+          ...opts,
+          headers: { Authorization: `Bearer ${tok}`, ...(opts.headers || {}) },
+          credentials: "include",
+        });
+      }
+      function fmtSize(b) {
+        return b < 1024
+          ? b + " B"
+          : b < 1048576
+            ? (b / 1024).toFixed(1) + " KB"
+            : (b / 1048576).toFixed(1) + " MB";
+      }
+      function fmtDate(d) {
+        return new Date(d).toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "short",
+        });
+      }
+      function esc(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+      function fIcon(n) {
+        const e = (n || "").split(".").pop().toLowerCase();
+        return (
+          {
+            pdf: "📄",
+            png: "🖼",
+            jpg: "🖼",
+            jpeg: "🖼",
+            mp4: "🎬",
+            mp3: "🎵",
+            zip: "📦",
+            doc: "📝",
+            docx: "📝",
+            xls: "📊",
+            xlsx: "📊",
+            txt: "📃",
+          }[e] || "📁"
+        );
+      }
+    </script>
+  </body>
+</html>

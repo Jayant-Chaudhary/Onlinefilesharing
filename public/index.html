@@ -1,0 +1,907 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>SecureDrop — Send</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+      :root {
+        --bg: #080810;
+        --s1: #0d0d18;
+        --s2: #13131f;
+        --s3: #1a1a28;
+        --bd: #22223a;
+        --bd2: #2d2d48;
+        --g: #00ff9d;
+        --gd: rgba(0, 255, 157, 0.08);
+        --gw: rgba(0, 255, 157, 0.25);
+        --amber: #f59e0b;
+        --red: #ef4444;
+        --blue: #60a5fa;
+        --text: #e8eaf6;
+        --muted: #52526e;
+        --mono: "Space Mono", monospace;
+        --serif: "Instrument Serif", serif;
+        --sans: "DM Sans", sans-serif;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          radial-gradient(
+            circle at 20% 50%,
+            rgba(0, 255, 157, 0.04) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            circle at 80% 20%,
+            rgba(96, 165, 250, 0.04) 0%,
+            transparent 40%
+          );
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 40px;
+        height: 58px;
+        background: rgba(8, 8, 16, 0.9);
+        border-bottom: 1px solid var(--bd);
+        backdrop-filter: blur(20px);
+      }
+      .logo {
+        font-family: var(--mono);
+        font-size: 0.9rem;
+        color: var(--g);
+        letter-spacing: 0.06em;
+      }
+      .logo span {
+        color: var(--muted);
+      }
+      .nav-r {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .nav-btn {
+        padding: 7px 14px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+      }
+      .nav-btn:hover,
+      .nav-btn.on {
+        background: var(--s2);
+        color: var(--text);
+      }
+      .user-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 12px 5px 5px;
+        background: var(--s2);
+        border: 1px solid var(--bd);
+        border-radius: 20px;
+      }
+      .avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--g);
+        color: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.62rem;
+        font-weight: 700;
+      }
+      .uname {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+      }
+
+      main {
+        flex: 1;
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 24px;
+      }
+
+      .upload-view {
+        width: 100%;
+        max-width: 520px;
+      }
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--g);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 16px;
+      }
+      .page-title {
+        font-family: var(--serif);
+        font-size: 3rem;
+        line-height: 1.05;
+        margin-bottom: 8px;
+        font-style: italic;
+      }
+      .page-sub {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--muted);
+        margin-bottom: 36px;
+        letter-spacing: 0.04em;
+      }
+
+      .dz {
+        border: 1.5px dashed var(--bd2);
+        border-radius: 20px;
+        padding: 52px 32px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: var(--s1);
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 20px;
+      }
+      .dz::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          circle at 50% 0%,
+          var(--gd),
+          transparent 60%
+        );
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .dz:hover,
+      .dz.over {
+        border-color: var(--g);
+        border-style: solid;
+      }
+      .dz:hover::before,
+      .dz.over::before {
+        opacity: 1;
+      }
+      .dz input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+      .dz-icon {
+        font-size: 2.8rem;
+        display: block;
+        margin-bottom: 14px;
+        transition: transform 0.3s;
+      }
+      .dz:hover .dz-icon {
+        transform: translateY(-4px);
+      }
+      .dz-title {
+        font-size: 1rem;
+        font-weight: 500;
+        margin-bottom: 6px;
+      }
+      .dz-sub {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--muted);
+      }
+
+      .fpill {
+        display: none;
+        align-items: center;
+        gap: 12px;
+        background: var(--s2);
+        border: 1px solid var(--bd2);
+        border-radius: 12px;
+        padding: 14px 18px;
+        margin-bottom: 20px;
+      }
+      .fpill.show {
+        display: flex;
+      }
+      .fpill-ico {
+        font-size: 1.5rem;
+      }
+      .fpill-name {
+        font-weight: 500;
+        font-size: 0.9rem;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .fpill-size {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+      }
+      .fpill-x {
+        background: none;
+        border: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 2px 6px;
+        transition: color 0.2s;
+      }
+      .fpill-x:hover {
+        color: var(--red);
+      }
+
+      .share-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .st {
+        padding: 12px 8px;
+        background: var(--s1);
+        border: 1.5px solid var(--bd);
+        border-radius: 12px;
+        color: var(--muted);
+        font-family: var(--sans);
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.2s;
+      }
+      .st span {
+        display: block;
+        font-size: 1.2rem;
+        margin-bottom: 4px;
+      }
+      .st.active-p {
+        border-color: var(--muted);
+        color: var(--text);
+        background: var(--s2);
+      }
+      .st.active-u {
+        border-color: var(--blue);
+        color: var(--blue);
+        background: rgba(96, 165, 250, 0.07);
+      }
+      .st.active-d {
+        border-color: var(--amber);
+        color: var(--amber);
+        background: rgba(245, 158, 11, 0.07);
+      }
+
+      .domain-wrap {
+        display: none;
+        margin-bottom: 16px;
+      }
+      .domain-wrap.show {
+        display: block;
+      }
+      .dinput {
+        width: 100%;
+        padding: 11px 16px;
+        background: var(--s1);
+        border: 1.5px solid var(--bd2);
+        border-radius: 10px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .dinput:focus {
+        border-color: var(--amber);
+      }
+      .dinput::placeholder {
+        color: var(--muted);
+      }
+
+      .ubtn {
+        width: 100%;
+        padding: 16px;
+        background: var(--g);
+        color: #000;
+        border: none;
+        border-radius: 12px;
+        font-family: var(--sans);
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.25s;
+        position: relative;
+        overflow: hidden;
+      }
+      .ubtn:hover:not(:disabled) {
+        background: #00e88c;
+        box-shadow: 0 8px 32px var(--gw);
+        transform: translateY(-1px);
+      }
+      .ubtn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+
+      .spin {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(0, 0, 0, 0.25);
+        border-top-color: #000;
+        border-radius: 50%;
+        animation: rot 0.6s linear infinite;
+        vertical-align: middle;
+        margin-right: 8px;
+      }
+      @keyframes rot {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* result */
+      .result-view {
+        display: none;
+        width: 100%;
+        max-width: 440px;
+      }
+      .result-view.show {
+        display: flex;
+        flex-direction: column;
+        animation: fadeUp 0.5s ease;
+      }
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .success-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--gd);
+        border: 1px solid rgba(0, 255, 157, 0.2);
+        border-radius: 20px;
+        padding: 6px 14px;
+        margin-bottom: 20px;
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--g);
+        letter-spacing: 0.06em;
+        width: fit-content;
+      }
+      .result-title {
+        font-family: var(--serif);
+        font-size: 2.4rem;
+        font-style: italic;
+        margin-bottom: 6px;
+      }
+      .result-sub {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--muted);
+        margin-bottom: 28px;
+        line-height: 1.8;
+      }
+
+      .qr-card {
+        background: var(--s1);
+        border: 1px solid var(--bd2);
+        border-radius: 20px;
+        padding: 28px;
+        text-align: center;
+        margin-bottom: 16px;
+      }
+      .qr-inner {
+        background: #fff;
+        padding: 16px;
+        border-radius: 14px;
+        display: inline-block;
+        margin-bottom: 12px;
+      }
+      .qr-label {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        letter-spacing: 0.06em;
+      }
+
+      .irow {
+        background: var(--s2);
+        border: 1px solid var(--bd);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .irow-label {
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        width: 60px;
+        flex-shrink: 0;
+      }
+      .irow-val {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--g);
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .irow-copy {
+        padding: 5px 10px;
+        background: var(--s1);
+        border: 1px solid var(--bd2);
+        border-radius: 6px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.2s;
+        flex-shrink: 0;
+      }
+      .irow-copy:hover {
+        border-color: var(--g);
+        color: var(--g);
+      }
+
+      .warn-box {
+        background: rgba(245, 158, 11, 0.07);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        border-radius: 10px;
+        padding: 12px 16px;
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--amber);
+        line-height: 1.8;
+        margin-bottom: 16px;
+      }
+
+      .action-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .abtn {
+        padding: 13px;
+        border-radius: 10px;
+        border: none;
+        font-family: var(--sans);
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .abtn-ghost {
+        background: var(--s2);
+        color: var(--text);
+        border: 1px solid var(--bd2);
+      }
+      .abtn-ghost:hover {
+        border-color: var(--g);
+        color: var(--g);
+      }
+      .abtn-solid {
+        background: var(--g);
+        color: #000;
+      }
+      .abtn-solid:hover {
+        background: #00e88c;
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="logo">SECURE<span>DROP</span></div>
+      <div class="nav-r">
+        <a class="nav-btn on" href="index.html">Send</a>
+        <a class="nav-btn" href="receive.html">Receive</a>
+        <a class="nav-btn" href="dashboard.html">Vault</a>
+        <div class="user-pill">
+          <div class="avatar" id="av">?</div>
+          <span class="uname" id="uname">—</span>
+        </div>
+        <button class="nav-btn" onclick="logout()">out</button>
+      </div>
+    </nav>
+
+    <main>
+      <div class="upload-view" id="uploadView">
+        <div class="eyebrow">// encrypted file transfer</div>
+        <div class="page-title">Send a file,<br />invisibly.</div>
+        <div class="page-sub">
+          AES-256-GCM · 24h expiry · server sees nothing
+        </div>
+
+        <div class="dz" id="dz">
+          <input type="file" id="fi" />
+          <span class="dz-icon">⬆</span>
+          <div class="dz-title">Drop file here or click to browse</div>
+          <div class="dz-sub">Any file type · Max 100 MB</div>
+        </div>
+
+        <div class="fpill" id="fpill">
+          <span class="fpill-ico" id="ficon">📄</span>
+          <span class="fpill-name" id="fname">—</span>
+          <span class="fpill-size" id="fsize">—</span>
+          <button class="fpill-x" onclick="clearFile()">✕</button>
+        </div>
+
+        <div class="share-row">
+          <button
+            class="st active-p"
+            id="st-private"
+            onclick="setShare('private')"
+          >
+            <span>🔒</span>Private
+          </button>
+          <button class="st" id="st-public" onclick="setShare('public')">
+            <span>🌐</span>Public
+          </button>
+          <button class="st" id="st-domain" onclick="setShare('domain')">
+            <span>🏢</span>Domain
+          </button>
+        </div>
+        <div class="domain-wrap" id="dwrap">
+          <input
+            class="dinput"
+            id="dinput"
+            type="text"
+            placeholder="e.g. iitk.ac.in"
+          />
+        </div>
+
+        <button class="ubtn" id="ubtn" disabled onclick="send()">
+          🔒 Encrypt &amp; Send
+        </button>
+      </div>
+
+      <div class="result-view" id="resultView">
+        <div class="success-badge">✓ FILE SECURED</div>
+        <div class="result-title">Done. Share<br />the QR.</div>
+        <div class="result-sub" id="rsub">
+          Expires in 24 hours · Encrypted end-to-end
+        </div>
+        <div class="qr-card">
+          <div class="qr-inner"><div id="qrdiv"></div></div>
+          <div class="qr-label">
+            Receiver scans → auto-downloads &amp; decrypts
+          </div>
+        </div>
+        <div class="irow">
+          <span class="irow-label">LINK</span>
+          <span class="irow-val" id="shareLink">—</span>
+          <button class="irow-copy" onclick="cp('shareLink')">COPY</button>
+        </div>
+        <div class="irow">
+          <span class="irow-label">FILE ID</span>
+          <span class="irow-val" id="shareId">—</span>
+          <button class="irow-copy" onclick="cp('shareId')">COPY</button>
+        </div>
+        <div class="warn-box" id="shareWarn"></div>
+        <div class="action-row">
+          <button class="abtn abtn-ghost" onclick="reset()">
+            ↑ Send Another
+          </button>
+          <button
+            class="abtn abtn-solid"
+            onclick="location.href = 'dashboard.html'"
+          >
+            → Vault
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      const BASE = "http://localhost:5001/api";
+      const APP = window.location.origin;
+      let tok = sessionStorage.getItem("sd_access_token") || "";
+      if (!tok) location.href = "login.html";
+
+      let selFile = null,
+        shareType = "private";
+
+      (async () => {
+        try {
+          const r = await api("/auth/me");
+          const { user } = await r.json();
+          document.getElementById("av").textContent = (user.name ||
+            user.email)[0].toUpperCase();
+          document.getElementById("uname").textContent =
+            user.email.split("@")[0];
+        } catch {}
+      })();
+
+      async function logout() {
+        await fetch(`${BASE}/auth/logout`, {
+          method: "POST",
+          credentials: "include",
+        });
+        sessionStorage.clear();
+        location.href = "login.html";
+      }
+
+      document
+        .getElementById("fi")
+        .addEventListener("change", (e) => setFile(e.target.files[0]));
+      const dz = document.getElementById("dz");
+      dz.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dz.classList.add("over");
+      });
+      dz.addEventListener("dragleave", () => dz.classList.remove("over"));
+      dz.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dz.classList.remove("over");
+        setFile(e.dataTransfer.files[0]);
+      });
+
+      function setFile(f) {
+        if (!f) return;
+        selFile = f;
+        document.getElementById("fpill").classList.add("show");
+        document.getElementById("ficon").textContent = fIcon(f.name);
+        document.getElementById("fname").textContent = f.name;
+        document.getElementById("fsize").textContent = fmtSize(f.size);
+        document.getElementById("ubtn").disabled = false;
+      }
+      function clearFile() {
+        selFile = null;
+        document.getElementById("fpill").classList.remove("show");
+        document.getElementById("ubtn").disabled = true;
+        document.getElementById("fi").value = "";
+      }
+
+      function setShare(t) {
+        shareType = t;
+        ["private", "public", "domain"].forEach((x) => {
+          const b = document.getElementById("st-" + x);
+          b.className =
+            "st" +
+            (x === t
+              ? " active-" +
+                (t === "private" ? "p" : t === "public" ? "u" : "d")
+              : "");
+        });
+        document.getElementById("dwrap").className =
+          "domain-wrap" + (t === "domain" ? " show" : "");
+      }
+
+      // Crypto
+      async function genAES() {
+        return crypto.subtle.generateKey(
+          { name: "AES-GCM", length: 256 },
+          true,
+          ["encrypt", "decrypt"],
+        );
+      }
+      async function exportB64(k) {
+        const r = await crypto.subtle.exportKey("raw", k);
+        return btoa(String.fromCharCode(...new Uint8Array(r)));
+      }
+      async function aesEncrypt(key, data) {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const ct = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv },
+          key,
+          data,
+        );
+        return { ct: new Uint8Array(ct), iv: btoa(String.fromCharCode(...iv)) };
+      }
+      function genKqr() {
+        return btoa(
+          String.fromCharCode(...crypto.getRandomValues(new Uint8Array(24))),
+        ).replace(/[+/=]/g, (c) => ({ "+": "-", "/": "_", "=": "" })[c]);
+      }
+      async function deriveKey(kqr, salt) {
+        const enc = new TextEncoder();
+        const base = await crypto.subtle.importKey(
+          "raw",
+          enc.encode(kqr),
+          "PBKDF2",
+          false,
+          ["deriveKey"],
+        );
+        return crypto.subtle.deriveKey(
+          { name: "PBKDF2", salt, iterations: 200000, hash: "SHA-256" },
+          base,
+          { name: "AES-GCM", length: 256 },
+          false,
+          ["encrypt", "decrypt"],
+        );
+      }
+
+      async function send() {
+        if (!selFile) return;
+        const domain = document.getElementById("dinput").value.trim();
+        if (shareType === "domain" && !domain) {
+          alert("Enter a domain");
+          return;
+        }
+        const btn = document.getElementById("ubtn");
+        btn.innerHTML = '<span class="spin"></span>Encrypting…';
+        btn.disabled = true;
+        try {
+          const A1 = await genAES();
+          const A1b = await exportB64(A1);
+          const { ct: encFile, iv: fileIv } = await aesEncrypt(
+            A1,
+            await selFile.arrayBuffer(),
+          );
+          btn.innerHTML = '<span class="spin"></span>Uploading…';
+          const form = new FormData();
+          form.append(
+            "file",
+            new Blob([encFile], { type: "application/octet-stream" }),
+            selFile.name,
+          );
+          form.append("file_iv", fileIv);
+          form.append("share_type", shareType);
+          if (shareType === "domain") form.append("share_domain", domain);
+          const up = await fetch(`${BASE}/files/upload`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${tok}` },
+            body: form,
+            credentials: "include",
+          });
+          if (!up.ok)
+            throw new Error((await up.json()).message || "Upload failed");
+          const { fileId } = await up.json();
+          btn.innerHTML = '<span class="spin"></span>Securing…';
+          const Kqr = genKqr();
+          const salt = crypto.getRandomValues(new Uint8Array(16));
+          const wk = await deriveKey(Kqr, salt);
+          const A1raw = Uint8Array.from(atob(A1b), (c) => c.charCodeAt(0));
+          const { ct: encKey, iv: keyIv } = await aesEncrypt(wk, A1raw);
+          const combined = new Uint8Array(16 + encKey.length);
+          combined.set(salt, 0);
+          combined.set(encKey, 16);
+          await api("/files/store-key", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fileId,
+              encryptedKey: btoa(String.fromCharCode(...combined)),
+              keyIv,
+            }),
+          });
+          // Build link — Kqr in fragment, never hits server
+          const link = `${APP}/receive.html#fileId=${fileId}&kqr=${encodeURIComponent(Kqr)}`;
+          showResult(fileId, link, shareType, domain);
+        } catch (e) {
+          alert("Error: " + e.message);
+          btn.innerHTML = "🔒 Encrypt & Send";
+          btn.disabled = false;
+        }
+      }
+
+      function showResult(fileId, link, stype, domain) {
+        document.getElementById("uploadView").style.display = "none";
+        document.getElementById("resultView").classList.add("show");
+        document.getElementById("qrdiv").innerHTML = "";
+        new QRCode(document.getElementById("qrdiv"), {
+          text: link,
+          width: 200,
+          height: 200,
+          colorDark: "#000",
+          colorLight: "#fff",
+        });
+        document.getElementById("shareLink").textContent = link;
+        document.getElementById("shareId").textContent = fileId;
+        const warns = {
+          private: "Private — only you can access.",
+          public: "Public — any logged-in user can download.",
+          domain: `Domain restricted — @${domain} only.`,
+        };
+        document.getElementById("rsub").textContent =
+          "Expires in 24 hours · " + warns[stype];
+        document.getElementById("shareWarn").innerHTML =
+          "⚠ QR link contains decryption key in URL fragment (#). Send via a secure channel for sensitive files.";
+      }
+
+      function reset() {
+        document.getElementById("uploadView").style.display = "";
+        document.getElementById("resultView").classList.remove("show");
+        document.getElementById("qrdiv").innerHTML = "";
+        clearFile();
+        document.getElementById("ubtn").innerHTML = "🔒 Encrypt & Send";
+        document.getElementById("ubtn").disabled = true;
+      }
+
+      function api(path, opts = {}) {
+        return fetch(BASE + path, {
+          ...opts,
+          headers: { Authorization: `Bearer ${tok}`, ...(opts.headers || {}) },
+          credentials: "include",
+        });
+      }
+      function cp(id) {
+        navigator.clipboard.writeText(document.getElementById(id).textContent);
+        const b = event.target;
+        b.textContent = "COPIED!";
+        setTimeout(() => (b.textContent = "COPY"), 1500);
+      }
+      function fmtSize(b) {
+        return b < 1024
+          ? b + " B"
+          : b < 1048576
+            ? (b / 1024).toFixed(1) + " KB"
+            : (b / 1048576).toFixed(1) + " MB";
+      }
+      function fIcon(n) {
+        const e = (n || "").split(".").pop().toLowerCase();
+        return (
+          {
+            pdf: "📄",
+            png: "🖼",
+            jpg: "🖼",
+            jpeg: "🖼",
+            mp4: "🎬",
+            mp3: "🎵",
+            zip: "📦",
+            doc: "📝",
+            docx: "📝",
+            xls: "📊",
+            xlsx: "📊",
+            txt: "📃",
+          }[e] || "📁"
+        );
+      }
+    </script>
+  </body>
+</html>

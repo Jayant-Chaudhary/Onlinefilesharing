@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>SecureDrop — Receive</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <!-- html5-qrcode for camera scanning -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+      :root {
+        --bg: #080810;
+        --s1: #0d0d18;
+        --s2: #13131f;
+        --s3: #1a1a28;
+        --bd: #22223a;
+        --bd2: #2d2d48;
+        --g: #00ff9d;
+        --gd: rgba(0, 255, 157, 0.08);
+        --gw: rgba(0, 255, 157, 0.25);
+        --purple: #a855f7;
+        --pd: rgba(168, 85, 247, 0.08);
+        --amber: #f59e0b;
+        --red: #ef4444;
+        --blue: #60a5fa;
+        --text: #e8eaf6;
+        --muted: #52526e;
+        --mono: "Space Mono", monospace;
+        --serif: "Instrument Serif", serif;
+        --sans: "DM Sans", sans-serif;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          radial-gradient(
+            circle at 80% 50%,
+            rgba(168, 85, 247, 0.04) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            circle at 20% 20%,
+            rgba(0, 255, 157, 0.03) 0%,
+            transparent 40%
+          );
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 40px;
+        height: 58px;
+        background: rgba(8, 8, 16, 0.9);
+        border-bottom: 1px solid var(--bd);
+        backdrop-filter: blur(20px);
+      }
+      .logo {
+        font-family: var(--mono);
+        font-size: 0.9rem;
+        color: var(--g);
+        letter-spacing: 0.06em;
+      }
+      .logo span {
+        color: var(--muted);
+      }
+      .nav-r {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .nav-btn {
+        padding: 7px 14px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+      }
+      .nav-btn:hover,
+      .nav-btn.on {
+        background: var(--s2);
+        color: var(--text);
+      }
+      .user-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 12px 5px 5px;
+        background: var(--s2);
+        border: 1px solid var(--bd);
+        border-radius: 20px;
+      }
+      .avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--g);
+        color: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.62rem;
+        font-weight: 700;
+      }
+      .uname {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+      }
+
+      main {
+        flex: 1;
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 24px;
+      }
+      .wrap {
+        width: 100%;
+        max-width: 480px;
+      }
+
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--purple);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 16px;
+      }
+      .page-title {
+        font-family: var(--serif);
+        font-size: 3rem;
+        line-height: 1.05;
+        margin-bottom: 8px;
+        font-style: italic;
+      }
+      .page-sub {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--muted);
+        margin-bottom: 36px;
+        letter-spacing: 0.04em;
+      }
+
+      /* ── States ── */
+      .state {
+        display: none;
+        animation: fadeUp 0.4s ease;
+      }
+      .state.active {
+        display: block;
+      }
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(16px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Scanner card */
+      .scanner-card {
+        background: var(--s1);
+        border: 1px solid var(--bd2);
+        border-radius: 20px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        position: relative;
+      }
+      #reader {
+        width: 100% !important;
+      }
+      /* Override html5-qrcode default styles */
+      #reader video {
+        border-radius: 0 !important;
+        border: none !important;
+      }
+      #reader__scan_region {
+        border: none !important;
+      }
+      #reader__dashboard {
+        background: var(--s2) !important;
+        border-top: 1px solid var(--bd) !important;
+        padding: 16px !important;
+      }
+      #reader__dashboard_section_swaplink {
+        color: var(--g) !important;
+        font-family: var(--mono) !important;
+        font-size: 0.7rem !important;
+      }
+      #reader__status_span {
+        color: var(--muted) !important;
+        font-family: var(--mono) !important;
+        font-size: 0.7rem !important;
+      }
+      #reader__filescan_input {
+        display: none !important;
+      }
+
+      .scan-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .scan-frame {
+        width: 180px;
+        height: 180px;
+        position: relative;
+      }
+      .scan-frame::before,
+      .scan-frame::after {
+        content: "";
+        position: absolute;
+        width: 32px;
+        height: 32px;
+        border-color: var(--g);
+        border-style: solid;
+      }
+      .scan-frame::before {
+        top: 0;
+        left: 0;
+        border-width: 3px 0 0 3px;
+        border-radius: 4px 0 0 0;
+      }
+      .scan-frame::after {
+        bottom: 0;
+        right: 0;
+        border-width: 0 3px 3px 0;
+        border-radius: 0 0 4px 0;
+      }
+      .scan-line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--g), transparent);
+        animation: scanline 2s ease-in-out infinite;
+        top: 0;
+      }
+      @keyframes scanline {
+        0% {
+          top: 0;
+          opacity: 1;
+        }
+        100% {
+          top: 100%;
+          opacity: 0.3;
+        }
+      }
+
+      .scan-corners {
+        position: absolute;
+        inset: 0;
+      }
+      .sc {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-color: var(--g);
+        border-style: solid;
+      }
+      .sc.tl {
+        top: 0;
+        left: 0;
+        border-width: 2px 0 0 2px;
+      }
+      .sc.tr {
+        top: 0;
+        right: 0;
+        border-width: 2px 2px 0 0;
+      }
+      .sc.bl {
+        bottom: 0;
+        left: 0;
+        border-width: 0 0 2px 2px;
+      }
+      .sc.br {
+        bottom: 0;
+        right: 0;
+        border-width: 0 2px 2px 0;
+      }
+
+      /* Start scan btn */
+      .scan-start {
+        width: 100%;
+        padding: 18px;
+        background: var(--s1);
+        border: 1.5px dashed var(--bd2);
+        border-radius: 20px;
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-align: center;
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .scan-start:hover {
+        border-color: var(--purple);
+        background: var(--pd);
+      }
+      .scan-icon {
+        font-size: 2.5rem;
+      }
+      .scan-start-label {
+        font-size: 1rem;
+        font-weight: 600;
+      }
+      .scan-start-sub {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--muted);
+      }
+
+      /* OR divider */
+      .or {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 20px 0;
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        letter-spacing: 0.08em;
+      }
+      .or::before,
+      .or::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--bd2);
+      }
+
+      /* Manual input */
+      .field {
+        margin-bottom: 14px;
+      }
+      .field label {
+        display: block;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 7px;
+      }
+      .field input {
+        width: 100%;
+        padding: 11px 16px;
+        background: var(--s1);
+        border: 1.5px solid var(--bd2);
+        border-radius: 10px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        outline: none;
+        transition: border-color 0.2s;
+      }
+      .field input:focus {
+        border-color: var(--purple);
+      }
+      .field input::placeholder {
+        color: var(--muted);
+      }
+
+      .dbtn {
+        width: 100%;
+        padding: 15px;
+        background: var(--purple);
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        font-family: var(--sans);
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.25s;
+      }
+      .dbtn:hover:not(:disabled) {
+        background: #9333ea;
+        box-shadow: 0 8px 28px rgba(168, 85, 247, 0.3);
+        transform: translateY(-1px);
+      }
+      .dbtn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+
+      .spin {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.25);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: rot 0.6s linear infinite;
+        vertical-align: middle;
+        margin-right: 8px;
+      }
+      @keyframes rot {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ── Decrypting state ── */
+      .decrypt-card {
+        background: var(--s1);
+        border: 1px solid var(--bd2);
+        border-radius: 20px;
+        padding: 40px 32px;
+        text-align: center;
+      }
+      .decrypt-icon {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 16px;
+        animation: pulse 1.5s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(1.1);
+          opacity: 0.7;
+        }
+      }
+      .decrypt-title {
+        font-family: var(--serif);
+        font-size: 1.8rem;
+        font-style: italic;
+        margin-bottom: 8px;
+      }
+      .decrypt-status {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--muted);
+        line-height: 2;
+      }
+
+      /* Progress bar */
+      .prog-bar {
+        background: var(--s3);
+        border-radius: 4px;
+        height: 4px;
+        margin-top: 20px;
+        overflow: hidden;
+      }
+      .prog-fill {
+        height: 100%;
+        background: var(--g);
+        border-radius: 4px;
+        width: 0%;
+        transition: width 0.4s ease;
+      }
+
+      /* ── Success state ── */
+      .success-card {
+        background: var(--s1);
+        border: 1px solid rgba(0, 255, 157, 0.2);
+        border-radius: 20px;
+        padding: 40px 32px;
+        text-align: center;
+      }
+      .success-icon {
+        font-size: 3.5rem;
+        display: block;
+        margin-bottom: 16px;
+      }
+      .success-title {
+        font-family: var(--serif);
+        font-size: 2rem;
+        font-style: italic;
+        margin-bottom: 8px;
+      }
+      .success-sub {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--muted);
+        margin-bottom: 24px;
+        line-height: 1.8;
+      }
+      .file-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--gd);
+        border: 1px solid rgba(0, 255, 157, 0.2);
+        border-radius: 10px;
+        padding: 12px 20px;
+        margin-bottom: 24px;
+      }
+      .file-badge-name {
+        font-weight: 600;
+        font-size: 0.9rem;
+      }
+      .file-badge-size {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+      }
+      .rbtn {
+        padding: 12px 28px;
+        background: var(--s2);
+        border: 1px solid var(--bd2);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .rbtn:hover {
+        border-color: var(--g);
+        color: var(--g);
+      }
+
+      /* ── Error state ── */
+      .error-card {
+        background: rgba(239, 68, 68, 0.06);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 20px;
+        padding: 40px 32px;
+        text-align: center;
+      }
+      .error-icon {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 16px;
+      }
+      .error-title {
+        font-family: var(--serif);
+        font-size: 1.8rem;
+        font-style: italic;
+        margin-bottom: 8px;
+        color: var(--red);
+      }
+      .error-msg {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--muted);
+        margin-bottom: 24px;
+        line-height: 1.8;
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="logo">SECURE<span>DROP</span></div>
+      <div class="nav-r">
+        <a class="nav-btn" href="index.html">Send</a>
+        <a class="nav-btn on" href="receive.html">Receive</a>
+        <a class="nav-btn" href="dashboard.html">Vault</a>
+        <div class="user-pill">
+          <div class="avatar" id="av">?</div>
+          <span class="uname" id="uname">—</span>
+        </div>
+        <button class="nav-btn" onclick="logout()">out</button>
+      </div>
+    </nav>
+
+    <main>
+      <div class="wrap">
+        <!-- ── SCAN STATE ── -->
+        <div class="state active" id="state-scan">
+          <div class="eyebrow">// decrypt &amp; receive</div>
+          <div class="page-title">Receive a<br />file.</div>
+          <div class="page-sub">
+            Scan the QR · auto-decrypts in your browser
+          </div>
+
+          <!-- Camera scanner -->
+          <button class="scan-start" id="startScanBtn" onclick="startScan()">
+            <span class="scan-icon">📷</span>
+            <span class="scan-start-label">Tap to scan QR code</span>
+            <span class="scan-start-sub"
+              >Opens your camera · nothing is sent to server</span
+            >
+          </button>
+
+          <!-- Scanner renders here -->
+          <div
+            id="reader-wrap"
+            style="
+              display: none;
+              margin-bottom: 20px;
+              border-radius: 20px;
+              overflow: hidden;
+              border: 1px solid var(--bd2);
+              position: relative;
+            "
+          >
+            <div id="reader"></div>
+            <div class="scan-overlay">
+              <div class="scan-frame">
+                <div class="scan-line"></div>
+                <div class="scan-corners">
+                  <div class="sc tl"></div>
+                  <div class="sc tr"></div>
+                  <div class="sc bl"></div>
+                  <div class="sc br"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="or">OR ENTER MANUALLY</div>
+
+          <div class="field">
+            <label>File ID</label>
+            <input
+              type="text"
+              id="manFileId"
+              placeholder="Paste File ID from sender"
+            />
+          </div>
+          <div class="field">
+            <label>Secret Key (Kqr)</label>
+            <input type="text" id="manKqr" placeholder="Paste the secret key" />
+          </div>
+          <button class="dbtn" id="manBtn" onclick="manualDecrypt()">
+            🔓 Decrypt &amp; Download
+          </button>
+        </div>
+
+        <!-- ── DECRYPTING STATE ── -->
+        <div class="state" id="state-decrypt">
+          <div class="decrypt-card">
+            <span class="decrypt-icon">🔐</span>
+            <div class="decrypt-title">Decrypting…</div>
+            <div class="decrypt-status" id="decryptStatus">
+              Fetching encryption key…
+            </div>
+            <div class="prog-bar">
+              <div class="prog-fill" id="progFill"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SUCCESS STATE ── -->
+        <div class="state" id="state-success">
+          <div class="success-card">
+            <span class="success-icon">✅</span>
+            <div class="success-title">File received!</div>
+            <div class="success-sub">
+              Decrypted entirely in your browser.<br />Your download started
+              automatically.
+            </div>
+            <div class="file-badge">
+              <span id="successIcon">📄</span>
+              <div>
+                <div class="file-badge-name" id="successName">—</div>
+                <div class="file-badge-size" id="successSize">—</div>
+              </div>
+            </div>
+            <br />
+            <button class="rbtn" onclick="resetScan()">
+              ← Receive another
+            </button>
+          </div>
+        </div>
+
+        <!-- ── ERROR STATE ── -->
+        <div class="state" id="state-error">
+          <div class="error-card">
+            <span class="error-icon">⚠️</span>
+            <div class="error-title">Access denied</div>
+            <div class="error-msg" id="errorMsg">—</div>
+            <button class="rbtn" onclick="resetScan()">← Try again</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      const BASE = "http://localhost:5001/api";
+      let tok = sessionStorage.getItem("sd_access_token") || "";
+      if (!tok) location.href = "login.html";
+
+      let scanner = null;
+
+      // ── Nav user ─────────────────────────────────────────────────────────────────
+      (async () => {
+        try {
+          const r = await apiFetch("/auth/me");
+          const { user } = await r.json();
+          document.getElementById("av").textContent = (user.name ||
+            user.email)[0].toUpperCase();
+          document.getElementById("uname").textContent =
+            user.email.split("@")[0];
+        } catch {}
+      })();
+      async function logout() {
+        await fetch(`${BASE}/auth/logout`, {
+          method: "POST",
+          credentials: "include",
+        });
+        sessionStorage.clear();
+        location.href = "login.html";
+      }
+
+      // ── Auto-detect from URL fragment ─────────────────────────────────────────────
+      // If page loaded with #fileId=xxx&kqr=yyy — auto start decryption
+      window.addEventListener("load", () => {
+        const hash = window.location.hash.slice(1); // remove #
+        if (!hash) return;
+        const params = new URLSearchParams(hash);
+        const fileId = params.get("fileId");
+        const kqr = params.get("kqr");
+        if (fileId && kqr) {
+          // Clear hash from URL bar (security — don't leave key in history)
+          history.replaceState(null, "", window.location.pathname);
+          startDecrypt(fileId, kqr);
+        }
+      });
+
+      // ── Camera QR Scanner ─────────────────────────────────────────────────────────
+      function startScan() {
+        document.getElementById("startScanBtn").style.display = "none";
+        document.getElementById("reader-wrap").style.display = "block";
+
+        scanner = new Html5Qrcode("reader");
+        scanner
+          .start(
+            { facingMode: "environment" }, // rear camera
+            { fps: 10, qrbox: { width: 220, height: 220 } },
+            (decodedText) => {
+              // QR scanned successfully
+              scanner.stop().then(() => {
+                document.getElementById("reader-wrap").style.display = "none";
+                document.getElementById("startScanBtn").style.display = "flex";
+                parseAndDecrypt(decodedText);
+              });
+            },
+            () => {}, // ignore per-frame errors
+          )
+          .catch((err) => {
+            showError(
+              "Camera access denied. Please use manual entry below.<br><small>" +
+                err +
+                "</small>",
+            );
+            resetScanUI();
+          });
+      }
+
+      function parseAndDecrypt(text) {
+        try {
+          // Try JSON payload first
+          let fileId, kqr;
+          if (text.startsWith("{")) {
+            ({ fileId, kqr } = JSON.parse(text));
+          } else {
+            // Try URL with fragment
+            const url = new URL(text);
+            const hash = new URLSearchParams(url.hash.slice(1));
+            fileId = hash.get("fileId");
+            kqr = hash.get("kqr");
+          }
+          if (!fileId || !kqr) throw new Error("Missing fileId or kqr in QR");
+          startDecrypt(fileId, kqr);
+        } catch (e) {
+          showError("Could not read QR code: " + e.message);
+        }
+      }
+
+      function manualDecrypt() {
+        const fileId = document.getElementById("manFileId").value.trim();
+        const kqr = document.getElementById("manKqr").value.trim();
+        if (!fileId || !kqr) {
+          alert("Both File ID and Kqr are required");
+          return;
+        }
+        startDecrypt(fileId, kqr);
+      }
+
+      // ── Core decrypt flow ─────────────────────────────────────────────────────────
+      async function startDecrypt(fileId, kqr) {
+        showState("decrypt");
+        setProgress(10, "Fetching encryption key…");
+
+        try {
+          // 1. Get encrypted key from server
+          const kr = await apiFetch(`/files/get-key/${fileId}`);
+          if (!kr.ok) {
+            const e = await kr.json();
+            throw new Error(e.message || "Access denied");
+          }
+          const { encryptedKey, keyIv, fileIv, originalName, fileSize } =
+            await kr.json();
+          setProgress(30, "Deriving decryption key…");
+
+          // 2. Reconstruct A1 from Kqr
+          const combined = Uint8Array.from(atob(encryptedKey), (c) =>
+            c.charCodeAt(0),
+          );
+          const salt = combined.slice(0, 16);
+          const encKey = combined.slice(16);
+          const wk = await deriveKey(kqr, salt);
+          const A1raw = await aesDecrypt(wk, encKey, keyIv);
+          const A1 = await crypto.subtle.importKey(
+            "raw",
+            A1raw,
+            { name: "AES-GCM" },
+            false,
+            ["decrypt"],
+          );
+          setProgress(55, "Downloading encrypted file…");
+
+          // 3. Download blob
+          const dl = await apiFetch(`/files/download/${fileId}`);
+          if (!dl.ok)
+            throw new Error((await dl.json()).message || "Download failed");
+          const encBytes = new Uint8Array(await dl.arrayBuffer());
+          setProgress(80, "Decrypting file…");
+
+          // 4. Decrypt
+          const plain = await aesDecrypt(A1, encBytes, fileIv);
+          setProgress(100, "Done!");
+
+          // 5. Trigger browser download
+          const url = URL.createObjectURL(new Blob([plain]));
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = originalName || "file";
+          a.click();
+          URL.revokeObjectURL(url);
+
+          // 6. Show success
+          setTimeout(() => {
+            document.getElementById("successIcon").textContent =
+              fIcon(originalName);
+            document.getElementById("successName").textContent =
+              originalName || "file";
+            document.getElementById("successSize").textContent = fmtSize(
+              fileSize || plain.byteLength,
+            );
+            showState("success");
+          }, 600);
+        } catch (e) {
+          showError(e.message);
+        }
+      }
+
+      // ── Crypto ────────────────────────────────────────────────────────────────────
+      async function deriveKey(kqr, salt) {
+        const enc = new TextEncoder();
+        const base = await crypto.subtle.importKey(
+          "raw",
+          enc.encode(kqr),
+          "PBKDF2",
+          false,
+          ["deriveKey"],
+        );
+        return crypto.subtle.deriveKey(
+          { name: "PBKDF2", salt, iterations: 200000, hash: "SHA-256" },
+          base,
+          { name: "AES-GCM", length: 256 },
+          false,
+          ["decrypt"],
+        );
+      }
+      async function aesDecrypt(key, ct, ivB64) {
+        const iv = Uint8Array.from(atob(ivB64), (c) => c.charCodeAt(0));
+        return crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct);
+      }
+
+      // ── UI helpers ────────────────────────────────────────────────────────────────
+      function showState(name) {
+        document
+          .querySelectorAll(".state")
+          .forEach((s) => s.classList.remove("active"));
+        document.getElementById("state-" + name).classList.add("active");
+      }
+      function setProgress(pct, msg) {
+        document.getElementById("progFill").style.width = pct + "%";
+        document.getElementById("decryptStatus").textContent = msg;
+      }
+      function showError(msg) {
+        document.getElementById("errorMsg").innerHTML = msg;
+        showState("error");
+      }
+      function resetScan() {
+        showState("scan");
+        resetScanUI();
+        document.getElementById("manFileId").value = "";
+        document.getElementById("manKqr").value = "";
+      }
+      function resetScanUI() {
+        document.getElementById("reader-wrap").style.display = "none";
+        document.getElementById("startScanBtn").style.display = "flex";
+        if (scanner) {
+          scanner.stop().catch(() => {});
+          scanner = null;
+        }
+      }
+
+      function apiFetch(path, opts = {}) {
+        return fetch(BASE + path, {
+          ...opts,
+          headers: { Authorization: `Bearer ${tok}`, ...(opts.headers || {}) },
+          credentials: "include",
+        });
+      }
+      function fmtSize(b) {
+        return b < 1024
+          ? b + " B"
+          : b < 1048576
+            ? (b / 1024).toFixed(1) + " KB"
+            : (b / 1048576).toFixed(1) + " MB";
+      }
+      function fIcon(n) {
+        const e = (n || "").split(".").pop().toLowerCase();
+        return (
+          {
+            pdf: "📄",
+            png: "🖼",
+            jpg: "🖼",
+            jpeg: "🖼",
+            mp4: "🎬",
+            mp3: "🎵",
+            zip: "📦",
+            doc: "📝",
+            docx: "📝",
+            xls: "📊",
+            xlsx: "📊",
+            txt: "📃",
+          }[e] || "📁"
+        );
+      }
+    </script>
+  </body>
+</html>
