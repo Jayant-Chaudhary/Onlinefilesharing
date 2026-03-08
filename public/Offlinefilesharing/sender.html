@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>SecureDrop Offline — Send</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script type="module">
+
+
+      import QRCode from "https://esm.sh/qrcode";
+
+      // ── State ─────────────────────────────────────────────────────
+      let qrPayloads = [];
+      let currentQR = 1;
+      let isGenerating = false;
+
+      // ── DOM refs ──────────────────────────────────────────────────
+      const fileInput = document.getElementById("fileInput");
+      const dropzone = document.getElementById("dropzone");
+      const filePill = document.getElementById("filePill");
+      const pillName = document.getElementById("pillName");
+      const pillSize = document.getElementById("pillSize");
+      const pillIcon = document.getElementById("pillIcon");
+      const generateBtn = document.getElementById("generateBtn");
+      const uploadView = document.getElementById("uploadView");
+      const qrView = document.getElementById("qrView");
+      const qrCanvas = document.getElementById("qrCanvas");
+      const qrCounter = document.getElementById("qrCounter");
+      const qrProgress = document.getElementById("qrProgress");
+      const prevBtn = document.getElementById("prevBtn");
+      const nextBtn = document.getElementById("nextBtn");
+      const cancelBtn = document.getElementById("cancelBtn");
+      const statusMsg = document.getElementById("statusMsg");
+
+      let selectedFile = null;
+
+      // ── File selection ────────────────────────────────────────────
+      fileInput.addEventListener("change", (e) => setFile(e.target.files[0]));
+      dropzone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropzone.classList.add("over");
+      });
+      dropzone.addEventListener("dragleave", () =>
+        dropzone.classList.remove("over"),
+      );
+      dropzone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropzone.classList.remove("over");
+        setFile(e.dataTransfer.files[0]);
+      });
+
+      function setFile(f) {
+        if (!f) return;
+        selectedFile = f;
+        pillName.textContent = f.name;
+        pillSize.textContent = fmtSize(f.size);
+        pillIcon.textContent = fileIcon(f.name);
+        filePill.classList.add("show");
+        generateBtn.disabled = false;
+      }
+
+      // ── Crypto helpers ────────────────────────────────────────────
+      async function generateAESKey() {
+        return crypto.subtle.generateKey(
+          { name: "AES-GCM", length: 256 },
+          true,
+          ["encrypt", "decrypt"],
+        );
+      }
+
+      async function exportKeyHex(key) {
+        const raw = await crypto.subtle.exportKey("raw", key);
+        return Array.from(new Uint8Array(raw))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+      }
+
+      async function aesEncrypt(key, data) {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const ct = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv },
+          key,
+          data,
+        );
+        return {
+          ciphertext: new Uint8Array(ct),
+          iv: Array.from(iv)
+            .map((b) => b.toString(16).padStart(2, "0"))
+            .join(""),
+        };
+      }
+
+      // ── Compression ───────────────────────────────────────────────
+      async function compress(file) {
+        const stream = file.stream().pipeThrough(new CompressionStream("gzip"));
+        const buf = await new Response(stream).arrayBuffer();
+        return new Uint8Array(buf);
+      }
+
+      // ── Main generate flow ────────────────────────────────────────
+      generateBtn.addEventListener("click", async () => {
+        if (!selectedFile || isGenerating) return;
+        isGenerating = true;
+        generateBtn.innerHTML = '<span class="spin"></span>Processing…';
+        generateBtn.disabled = true;
+        setStatus("Compressing file…");
+
+        try {
+          // 1. Compress
+          const compressed = await compress(selectedFile);
+          setStatus("Encrypting…");
+
+          // 2. Encrypt with AES-256-GCM
+          const aesKey = await generateAESKey();
+          const keyHex = await exportKeyHex(aesKey);
+          const { ciphertext, iv } = await aesEncrypt(aesKey, compressed);
+
+          // 3. Base64 encode ciphertext
+          const b64 = btoa(String.fromCharCode(...ciphertext));
+          setStatus("Building QR payloads…");
+
+          // 4. Split ciphertext into chunks
+          // 300 chars per chunk = low-density QR, easily scannable on mobile
+          const CHUNK_SIZE = 400;
+          const totalChunks = Math.ceil(b64.length / CHUNK_SIZE);
+          const chunks = [];
+          for (let i = 0; i < totalChunks; i++) {
+            chunks.push(b64.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE));
+          }
+
+          // 5. Split AES key hex (64 chars) equally across all QRs
+          const keyPartLen = Math.ceil(keyHex.length / totalChunks);
+          const keyParts = [];
+          for (let i = 0; i < totalChunks; i++) {
+            keyParts.push(keyHex.slice(i * keyPartLen, (i + 1) * keyPartLen));
+          }
+
+          // 6. Build payloads
+          // Format: INDEX|TOTAL||CHUNK||KEYPART||IV||FILETYPE
+          // IV only in QR #1 (receiver needs it once)
+          qrPayloads = chunks.map((chunk, i) => ({
+            // Format: "INDEX|TOTAL||CHUNK||KEYPART||IV||FILETYPE||FILENAME"
+            // INDEX|TOTAL uses single pipe; fields use double pipe
+            data: `${i + 1}|${totalChunks}||${chunk}||${keyParts[i]}||${i === 0 ? iv : ""}||${i === 0 ? selectedFile.type : ""}||${selectedFile.name}`,
+            label: `${i + 1} / ${totalChunks}`,
+          }));
+
+          setStatus(
+            `${totalChunks} QR code${totalChunks > 1 ? "s" : ""} generated`,
+          );
+          showQRView();
+        } catch (e) {
+          setStatus("Error: " + e.message);
+          console.error(e);
+          isGenerating = false;
+          generateBtn.innerHTML = "⬡ Generate QR Codes";
+          generateBtn.disabled = false;
+        }
+      });
+
+      // ── QR View ───────────────────────────────────────────────────
+      function showQRView() {
+        uploadView.style.display = "none";
+        qrView.classList.add("show");
+        currentQR = 1;
+        renderQR(0);
+        updateNav();
+      }
+
+      async function renderQR(index) {
+        qrCanvas.innerHTML = '<div class="qr-loading">generating…</div>';
+        qrCounter.textContent = qrPayloads[index].label;
+        qrProgress.textContent = `QR ${index + 1} of ${qrPayloads.length} — receiver needs ALL QRs`;
+
+        try {
+          const url = await QRCode.toDataURL(qrPayloads[index].data, {
+            errorCorrectionLevel: "L",
+            margin: 1,
+            width: 280,
+            color: { dark: "#000000", light: "#ffffff" },
+          });
+          const img = document.createElement("img");
+          img.src = url;
+          img.style.cssText = "border-radius:8px;display:block;";
+          qrCanvas.innerHTML = "";
+          qrCanvas.appendChild(img);
+        } catch (e) {
+          qrCanvas.innerHTML = `<div class="qr-loading" style="color:#ef4444">QR too large — try a smaller file</div>`;
+        }
+      }
+
+      function updateNav() {
+        prevBtn.disabled = currentQR === 1;
+        nextBtn.disabled = currentQR === qrPayloads.length;
+        prevBtn.style.opacity = prevBtn.disabled ? ".3" : "1";
+        nextBtn.style.opacity = nextBtn.disabled ? ".3" : "1";
+      }
+
+      prevBtn.addEventListener("click", () => {
+        if (currentQR > 1) {
+          currentQR--;
+          renderQR(currentQR - 1);
+          updateNav();
+        }
+      });
+      nextBtn.addEventListener("click", () => {
+        if (currentQR < qrPayloads.length) {
+          currentQR++;
+          renderQR(currentQR - 1);
+          updateNav();
+        }
+      });
+      cancelBtn.addEventListener("click", reset);
+
+      function reset() {
+        qrPayloads = [];
+        currentQR = 1;
+        isGenerating = false;
+        selectedFile = null;
+        fileInput.value = "";
+        filePill.classList.remove("show");
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = "⬡ Generate QR Codes";
+        qrView.classList.remove("show");
+        uploadView.style.display = "";
+        setStatus("");
+      }
+
+      // ── Helpers ───────────────────────────────────────────────────
+      function setStatus(msg) {
+        statusMsg.textContent = msg;
+      }
+      function fmtSize(b) {
+        return b < 1024
+          ? b + " B"
+          : b < 1048576
+            ? (b / 1024).toFixed(1) + " KB"
+            : (b / 1048576).toFixed(1) + " MB";
+      }
+      function fileIcon(n) {
+        const e = (n || "").split(".").pop().toLowerCase();
+        return (
+          {
+            pdf: "📄",
+            png: "🖼",
+            jpg: "🖼",
+            jpeg: "🖼",
+            mp4: "🎬",
+            mp3: "🎵",
+            zip: "📦",
+            doc: "📝",
+            docx: "📝",
+            xls: "📊",
+            xlsx: "📊",
+            txt: "📃",
+          }[e] || "📁"
+        );
+      }
+    </script>
+    <style>
+      :root {
+        --bg: #080810;
+        --s1: #0d0d18;
+        --s2: #13131f;
+        --s3: #1a1a28;
+        --bd: #22223a;
+        --bd2: #2d2d48;
+        --g: #00ff9d;
+        --gd: rgba(0, 255, 157, 0.08);
+        --gw: rgba(0, 255, 157, 0.22);
+        --amber: #f59e0b;
+        --red: #ef4444;
+        --text: #e8eaf6;
+        --muted: #52526e;
+        --mono: "Space Mono", monospace;
+        --serif: "Instrument Serif", serif;
+        --sans: "DM Sans", sans-serif;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(0, 255, 157, 0.02) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 157, 0.02) 1px, transparent 1px);
+        background-size: 52px 52px;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        height: 56px;
+        background: rgba(8, 8, 16, 0.92);
+        border-bottom: 1px solid var(--bd);
+        backdrop-filter: blur(20px);
+      }
+      .logo {
+        font-family: var(--mono);
+        font-size: 0.85rem;
+        color: var(--g);
+        letter-spacing: 0.08em;
+      }
+      .logo span {
+        color: var(--muted);
+      }
+      .nav-links {
+        display: flex;
+        gap: 4px;
+      }
+      .nl {
+        padding: 6px 13px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+      }
+      .nl:hover,
+      .nl.on {
+        background: var(--s2);
+        color: var(--text);
+      }
+      .offline-badge {
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        color: var(--amber);
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        padding: 3px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.08em;
+      }
+
+      main {
+        flex: 1;
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 24px;
+      }
+
+      /* ── Upload view ── */
+      .upload-view {
+        width: 100%;
+        max-width: 480px;
+        animation: fadeUp 0.4s ease;
+      }
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(16px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--amber);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-bottom: 14px;
+      }
+      .page-title {
+        font-family: var(--serif);
+        font-size: 2.8rem;
+        font-style: italic;
+        line-height: 1.05;
+        margin-bottom: 6px;
+      }
+      .page-sub {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--muted);
+        margin-bottom: 32px;
+        letter-spacing: 0.04em;
+        line-height: 1.8;
+      }
+
+      /* dropzone */
+      .dz {
+        border: 1.5px dashed var(--bd2);
+        border-radius: 18px;
+        padding: 48px 28px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: var(--s1);
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 16px;
+      }
+      .dz::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          circle at 50% 0%,
+          var(--gd),
+          transparent 60%
+        );
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .dz:hover,
+      .dz.over {
+        border-color: var(--amber);
+        border-style: solid;
+      }
+      .dz:hover::before,
+      .dz.over::before {
+        opacity: 1;
+      }
+      .dz input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+      .dz-icon {
+        font-size: 2.4rem;
+        display: block;
+        margin-bottom: 12px;
+        transition: transform 0.3s;
+      }
+      .dz:hover .dz-icon {
+        transform: translateY(-4px);
+      }
+      .dz-title {
+        font-size: 0.95rem;
+        font-weight: 500;
+        margin-bottom: 4px;
+      }
+      .dz-sub {
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        color: var(--muted);
+      }
+
+      /* file pill */
+      .fpill {
+        display: none;
+        align-items: center;
+        gap: 12px;
+        background: var(--s2);
+        border: 1px solid var(--bd2);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+      }
+      .fpill.show {
+        display: flex;
+      }
+      .fi {
+        font-size: 1.4rem;
+      }
+      .fn {
+        font-weight: 500;
+        font-size: 0.88rem;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .fs {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+      }
+
+      /* status */
+      .status {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--amber);
+        min-height: 20px;
+        margin-bottom: 12px;
+        letter-spacing: 0.04em;
+      }
+
+      /* generate btn */
+      .gen-btn {
+        width: 100%;
+        padding: 15px;
+        background: var(--amber);
+        color: #000;
+        border: none;
+        border-radius: 12px;
+        font-family: var(--sans);
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.25s;
+      }
+      .gen-btn:hover:not(:disabled) {
+        background: #e69009;
+        box-shadow: 0 8px 28px rgba(245, 158, 11, 0.3);
+        transform: translateY(-1px);
+      }
+      .gen-btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+
+      .spin {
+        display: inline-block;
+        width: 13px;
+        height: 13px;
+        border: 2px solid rgba(0, 0, 0, 0.2);
+        border-top-color: #000;
+        border-radius: 50%;
+        animation: rot 0.6s linear infinite;
+        vertical-align: middle;
+        margin-right: 6px;
+      }
+      @keyframes rot {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ── QR view ── */
+      .qr-view {
+        display: none;
+        width: 100%;
+        max-width: 360px;
+        text-align: center;
+        animation: fadeUp 0.4s ease;
+      }
+      .qr-view.show {
+        display: block;
+      }
+
+      .qr-label {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--amber);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      .qr-title {
+        font-family: var(--serif);
+        font-size: 2rem;
+        font-style: italic;
+        margin-bottom: 4px;
+      }
+      .qr-progress {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        margin-bottom: 24px;
+        line-height: 1.8;
+      }
+
+      .qr-card {
+        background: var(--s1);
+        border: 1px solid var(--bd2);
+        border-radius: 18px;
+        padding: 24px;
+        margin-bottom: 20px;
+        position: relative;
+      }
+      .qr-counter-badge {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: var(--s3);
+        border: 1px solid var(--bd2);
+        border-radius: 6px;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--amber);
+        padding: 4px 10px;
+      }
+      #qrCanvas {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 260px;
+      }
+      .qr-loading {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--muted);
+      }
+
+      .nav-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .nav-btn {
+        flex: 1;
+        padding: 12px;
+        background: var(--s2);
+        border: 1px solid var(--bd2);
+        border-radius: 10px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        letter-spacing: 0.04em;
+      }
+      .nav-btn:hover:not(:disabled) {
+        border-color: var(--amber);
+        color: var(--amber);
+      }
+
+      .cancel-btn {
+        width: 100%;
+        padding: 11px;
+        background: transparent;
+        border: 1px solid var(--bd);
+        border-radius: 10px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        letter-spacing: 0.04em;
+      }
+      .cancel-btn:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+
+      /* security note */
+      .sec-note {
+        background: rgba(245, 158, 11, 0.06);
+        border: 1px solid rgba(245, 158, 11, 0.15);
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-top: 16px;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--amber);
+        line-height: 1.8;
+        text-align: left;
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="logo">SECURE<span>DROP</span></div>
+      <div class="nav-links">
+        <a class="nl on" href="sender.html">Send</a>
+        <a class="nl" href="reciver.html">Receive</a>
+        <a class="nl" href="../home.html">← Home</a>
+      </div>
+      <div class="offline-badge">OFFLINE</div>
+    </nav>
+
+    <main>
+      <!-- Upload view -->
+      <div class="upload-view" id="uploadView">
+        <div class="eyebrow">// offline · no internet needed</div>
+        <div class="page-title">Share via<br />QR codes.</div>
+        <div class="page-sub">
+          AES-256-GCM encrypted.<br />
+          Key splits across all QRs — receiver needs every one.
+        </div>
+
+        <div class="dz" id="dropzone">
+          <input type="file" id="fileInput" />
+          <span class="dz-icon">📡</span>
+          <div class="dz-title">Drop file or click to browse</div>
+          <div class="dz-sub">
+            Any file type · encrypted before QR generation
+          </div>
+        </div>
+
+        <div class="fpill" id="filePill">
+          <span class="fi" id="pillIcon">📄</span>
+          <span class="fn" id="pillName">—</span>
+          <span class="fs" id="pillSize">—</span>
+        </div>
+
+        <div class="status" id="statusMsg"></div>
+
+        <button class="gen-btn" id="generateBtn" disabled>
+          ⬡ Generate QR Codes
+        </button>
+      </div>
+
+      <!-- QR view -->
+      <div class="qr-view" id="qrView">
+        <div class="qr-label">// scan in order</div>
+        <div class="qr-title">Show each QR<br />to receiver.</div>
+        <div class="qr-progress" id="qrProgress">—</div>
+
+        <div class="qr-card">
+          <div class="qr-counter-badge" id="qrCounter">1 / 1</div>
+          <div id="qrCanvas"></div>
+        </div>
+
+        <div class="nav-row">
+          <button class="nav-btn" id="prevBtn">← Prev</button>
+          <button class="nav-btn" id="nextBtn">Next →</button>
+        </div>
+
+        <button class="cancel-btn" id="cancelBtn">
+          ✕ Cancel &amp; Start Over
+        </button>
+
+        <div class="sec-note">
+          ⚠ Each QR contains one part of the AES key.<br />
+          Receiver must scan <strong>all QRs in order</strong> to decrypt.
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

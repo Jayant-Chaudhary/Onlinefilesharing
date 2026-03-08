@@ -7,6 +7,6 @@ const port = process.env.PORT || 5001;
 
 startCleanupCron();
 
-app.listen(port,'192.168.31.82', () => {
+app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });

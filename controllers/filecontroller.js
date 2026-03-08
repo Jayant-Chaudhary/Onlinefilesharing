@@ -4,10 +4,9 @@ const cron = require("node-cron");
 const fileModel = require("../models/fileModel");
 const { BUCKET, minioClient } = require("../config/minio");
 
-// ═══════════════════════════════════════════════════════════════════════════
 // CLEANUP CRON — runs every 10 minutes, auto-deletes expired files
 // Call startCleanupCron() once from server.js
-// ═══════════════════════════════════════════════════════════════════════════
+
 function startCleanupCron() {
   cron.schedule("*/10 * * * *", async () => {
     try {
@@ -33,9 +32,8 @@ function startCleanupCron() {
   console.log("[Cleanup] Cron scheduled (every 10 min)");
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
 // HELPERS
-// ═══════════════════════════════════════════════════════════════════════════
+
 const MAX_QUOTA = 100 * 1024 * 1024; // 100 MB per user
 
 function extractDomain(email) {
@@ -74,9 +72,8 @@ function canAccess(file, reqUser) {
   return { ok: false, reason: "Access denied" };
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
 // UPLOAD
-// ═══════════════════════════════════════════════════════════════════════════
+
 exports.uploadFile = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
@@ -132,20 +129,26 @@ exports.uploadFile = async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
 // STORE KEY
-// ═══════════════════════════════════════════════════════════════════════════
+
 exports.storeKey = async (req, res) => {
   try {
-    const { fileId, encryptedKey, keyIv } = req.body;
     if (!fileId || !encryptedKey || !keyIv)
       return res
         .status(400)
         .json({ message: "fileId, encryptedKey and keyIv required" });
 
     const file = await fileModel.getFileById(fileId);
+    console.log("file found:", file ? "yes" : "NO - null");
+    console.log("file.user_id:", file?.user_id, "type:", typeof file?.user_id);
+    console.log("req.user.id:", req.user?.id, "type:", typeof req.user?.id);
+    console.log(
+      "String match:",
+      String(file?.user_id) === String(req.user?.id),
+    );
+
     if (!file) return res.status(404).json({ message: "File not found" });
-    if (file.user_id !== req.user.id)
+    if (String(file.user_id) !== String(req.user.id))
       return res.status(403).json({ message: "Forbidden" });
 
     await fileModel.storeEncryptedKey(fileId, encryptedKey, keyIv);
@@ -156,9 +159,8 @@ exports.storeKey = async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
 // GET KEY  (checks access rules + domain)
-// ═══════════════════════════════════════════════════════════════════════════
+
 exports.getKey = async (req, res) => {
   try {
     const { fileId } = req.params;
@@ -189,9 +191,8 @@ exports.getKey = async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
 // DOWNLOAD  (checks access rules)
-// ═══════════════════════════════════════════════════════════════════════════
+
 exports.downloadFile = async (req, res) => {
   try {
     const file = await fileModel.getFileById(req.params.id);
@@ -228,9 +229,8 @@ exports.downloadFile = async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
 // DASHBOARD — list user's files + quota
-// ═══════════════════════════════════════════════════════════════════════════
+
 exports.listFiles = async (req, res) => {
   try {
     const files = await fileModel.getFilesByUser(req.user.id);
@@ -245,9 +245,8 @@ exports.listFiles = async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
 // UPDATE SHARE SETTINGS
-// ═══════════════════════════════════════════════════════════════════════════
+
 exports.updateShare = async (req, res) => {
   try {
     const { fileId } = req.params;
@@ -275,9 +274,8 @@ exports.updateShare = async (req, res) => {
   }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
 // DELETE
-// ═══════════════════════════════════════════════════════════════════════════
+
 exports.deleteFile = async (req, res) => {
   try {
     const file = await fileModel.getFileById(req.params.id);

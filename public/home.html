@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>SecureDrop — Choose Mode</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #080810;
+        --s1: #0d0d18;
+        --s2: #13131f;
+        --bd: #22223a;
+        --bd2: #2d2d48;
+        --g: #00ff9d;
+        --gd: rgba(0, 255, 157, 0.08);
+        --gw: rgba(0, 255, 157, 0.22);
+        --amber: #f59e0b;
+        --aw: rgba(245, 158, 11, 0.22);
+        --ad: rgba(245, 158, 11, 0.08);
+        --text: #e8eaf6;
+        --muted: #52526e;
+        --mono: "Space Mono", monospace;
+        --serif: "Instrument Serif", serif;
+        --sans: "DM Sans", sans-serif;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 24px;
+        overflow: hidden;
+      }
+
+      /* animated bg */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(
+            ellipse at 20% 50%,
+            rgba(0, 255, 157, 0.05) 0%,
+            transparent 55%
+          ),
+          radial-gradient(
+            ellipse at 80% 30%,
+            rgba(245, 158, 11, 0.04) 0%,
+            transparent 50%
+          ),
+          radial-gradient(
+            ellipse at 50% 90%,
+            rgba(96, 165, 250, 0.03) 0%,
+            transparent 40%
+          );
+        pointer-events: none;
+        animation: bgshift 12s ease-in-out infinite alternate;
+      }
+      @keyframes bgshift {
+        0% {
+          opacity: 0.6;
+        }
+        50% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0.7;
+        }
+      }
+
+      /* grid lines */
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+          linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.018) 1px,
+            transparent 1px
+          );
+        background-size: 60px 60px;
+        pointer-events: none;
+      }
+
+      .container {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-width: 680px;
+        animation: fadeUp 0.6s ease;
+      }
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(24px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* header */
+      .wordmark {
+        text-align: center;
+        margin-bottom: 12px;
+        font-family: var(--mono);
+        font-size: 0.8rem;
+        color: var(--g);
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+      }
+      .headline {
+        font-family: var(--serif);
+        font-size: clamp(2.4rem, 6vw, 3.8rem);
+        font-style: italic;
+        text-align: center;
+        line-height: 1.05;
+        margin-bottom: 10px;
+      }
+      .sub {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--muted);
+        text-align: center;
+        letter-spacing: 0.06em;
+        margin-bottom: 52px;
+      }
+
+      /* mode cards */
+      .cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+
+      .card {
+        position: relative;
+        background: var(--s1);
+        border: 1px solid var(--bd);
+        border-radius: 20px;
+        padding: 36px 28px;
+        cursor: pointer;
+        transition:
+          transform 0.25s,
+          border-color 0.25s,
+          box-shadow 0.25s;
+        text-decoration: none;
+        color: var(--text);
+        overflow: hidden;
+        display: block;
+      }
+      .card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 20px;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .card:hover {
+        transform: translateY(-4px);
+      }
+
+      /* online card */
+      .card-online::before {
+        background: radial-gradient(
+          circle at 50% 0%,
+          var(--gd),
+          transparent 60%
+        );
+      }
+      .card-online:hover {
+        border-color: var(--g);
+        box-shadow: 0 12px 40px var(--gw);
+      }
+      .card-online:hover::before {
+        opacity: 1;
+      }
+      .card-online .card-icon {
+        color: var(--g);
+      }
+      .card-online .card-tag {
+        background: var(--gd);
+        color: var(--g);
+        border-color: rgba(0, 255, 157, 0.2);
+      }
+      .card-online .card-arrow {
+        color: var(--g);
+      }
+
+      /* offline card */
+      .card-offline::before {
+        background: radial-gradient(
+          circle at 50% 0%,
+          var(--ad),
+          transparent 60%
+        );
+      }
+      .card-offline:hover {
+        border-color: var(--amber);
+        box-shadow: 0 12px 40px var(--aw);
+      }
+      .card-offline:hover::before {
+        opacity: 1;
+      }
+      .card-offline .card-icon {
+        color: var(--amber);
+      }
+      .card-offline .card-tag {
+        background: var(--ad);
+        color: var(--amber);
+        border-color: rgba(245, 158, 11, 0.2);
+      }
+      .card-offline .card-arrow {
+        color: var(--amber);
+      }
+
+      .card-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 20px;
+      }
+      .card-icon {
+        font-size: 2rem;
+        line-height: 1;
+      }
+      .card-tag {
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        letter-spacing: 0.1em;
+        padding: 3px 9px;
+        border-radius: 4px;
+        border: 1px solid;
+        text-transform: uppercase;
+      }
+
+      .card-title {
+        font-family: var(--serif);
+        font-size: 1.6rem;
+        font-style: italic;
+        margin-bottom: 8px;
+        line-height: 1.1;
+      }
+      .card-desc {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+        line-height: 1.9;
+        margin-bottom: 24px;
+      }
+
+      .card-features {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 24px;
+      }
+      .feat {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+      }
+      .feat::before {
+        content: "—";
+        opacity: 0.4;
+      }
+
+      .card-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .card-cta {
+        font-family: var(--sans);
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .card-arrow {
+        font-size: 1.1rem;
+        transition: transform 0.2s;
+      }
+      .card:hover .card-arrow {
+        transform: translateX(4px);
+      }
+
+      /* bottom note */
+      .note {
+        text-align: center;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+        line-height: 2;
+      }
+      .note span {
+        color: var(--g);
+      }
+
+      /* responsive */
+      @media (max-width: 520px) {
+        .cards {
+          grid-template-columns: 1fr;
+        }
+        .headline {
+          font-size: 2.2rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="wordmark">// SecureDrop</div>
+      <div class="headline">How do you want<br />to share?</div>
+      <div class="sub">AES-256-GCM encrypted · zero compromise</div>
+
+      <div class="cards">
+        <!-- Online -->
+        <a class="card card-online" href="/login.html">
+          <div class="card-top">
+            <span class="card-icon">🌐</span>
+            <span class="card-tag">Online</span>
+          </div>
+          <div class="card-title">Cloud<br />Transfer</div>
+          <div class="card-desc">
+            Encrypted upload to server.<br />Share via QR link anywhere.
+          </div>
+          <div class="card-features">
+            <div class="feat">Server-side encrypted storage</div>
+            <div class="feat">24h expiry, 100MB limit</div>
+            <div class="feat">Public / domain / private share</div>
+            <div class="feat">Works across networks</div>
+          </div>
+          <div class="card-footer">
+            <span class="card-cta">Go to vault</span>
+            <span class="card-arrow">→</span>
+          </div>
+        </a>
+
+        <!-- Offline -->
+        <a class="card card-offline" href="./Offlinefilesharing/sender.html">
+          <div class="card-top">
+            <span class="card-icon">📡</span>
+            <span class="card-tag">Offline</span>
+          </div>
+          <div class="card-title">Local<br />QR Share</div>
+          <div class="card-desc">
+            No internet. No server.<br />File travels as QR codes.
+          </div>
+          <div class="card-features">
+            <div class="feat">Zero network required</div>
+            <div class="feat">AES key split across QRs</div>
+            <div class="feat">Scan all QRs to decrypt</div>
+            <div class="feat">Any file, any size</div>
+          </div>
+          <div class="card-footer">
+            <span class="card-cta">Start offline</span>
+            <span class="card-arrow">→</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="note">
+        Both modes use <span>AES-256-GCM</span> encryption · decryption happens
+        in your browser
+      </div>
+    </div>
+  </body>
+</html>

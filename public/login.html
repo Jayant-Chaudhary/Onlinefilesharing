@@ -589,7 +589,7 @@
 
           <div class="msg" id="login-msg"></div>
 
-          <!-- Google OAuth button -->
+          <!-- Google OAuth button
           <button class="google-btn" onclick="googleLogin()">
             <svg class="google-icon" viewBox="0 0 24 24">
               <path
@@ -610,9 +610,9 @@
               />
             </svg>
             Continue with Google
-          </button>
+          </button> -->
 
-          <div class="or-line"><span>OR</span></div>
+          <!-- <div class="or-line"><span>OR</span></div> -->
 
           <div class="field">
             <label>Email</label>
@@ -668,7 +668,7 @@
 
           <div class="msg" id="register-msg"></div>
 
-          <button class="google-btn" onclick="googleLogin()">
+          <!-- <button class="google-btn" onclick="googleLogin()">
             <svg class="google-icon" viewBox="0 0 24 24">
               <path
                 fill="#4285F4"
@@ -688,9 +688,9 @@
               />
             </svg>
             Sign up with Google
-          </button>
+          </button> -->
 
-          <div class="or-line"><span>OR</span></div>
+          <!-- <div class="or-line"><span>OR</span></div> -->
 
           <div class="field">
             <label>Email</label>
@@ -757,10 +757,10 @@
       // ══════════════════════════════════════════════════════════════════
       // CONFIG
       // ══════════════════════════════════════════════════════════════════
-      const BASE_URL = "http://localhost:5001/api";
+      const BASE_URL = window.location.origin + "/api";
       const GOOGLE_CLIENT_ID =
-        "211701047276-9rnu6q6vaj77mocn4m97jpac7vcg6pd5.apps.googleusercontent.com"; // ← replace
-      const APP_URL = "index.html"; // main app page
+        "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"; // ← replace
+      const APP_URL = "send.html"; // main app page
 
       // ══════════════════════════════════════════════════════════════════
       // ANIMATED PARTICLE BACKGROUND
@@ -946,10 +946,7 @@
           if (!res.ok) throw new Error(data.message || "Login failed");
 
           saveToken(data.accessToken);
-          showMsg("login-msg", "✓ Authenticated successfully", "ok");
-          document.getElementById("login-token-val").textContent =
-            data.accessToken;
-          document.getElementById("login-token").classList.add("show");
+          location.href = APP_URL;
         } catch (e) {
           showMsg("login-msg", e.message, "err");
         } finally {
@@ -1018,11 +1015,7 @@
           if (!res.ok) throw new Error(data.message || "Google auth failed");
 
           saveToken(data.accessToken);
-          showMsg("login-msg", `✓ Welcome! Signed in with Google`, "ok");
-          document.getElementById("login-token-val").textContent =
-            data.accessToken;
-          document.getElementById("login-token").classList.add("show");
-          setMode("login");
+          location.href = APP_URL;
         } catch (e) {
           showMsg("login-msg", e.message, "err");
           setMode("login");
@@ -1057,13 +1050,7 @@
         // Auto-fill token if already in session
         const existing = sessionStorage.getItem("sd_access_token");
         if (existing) {
-          document.getElementById("login-token-val").textContent = existing;
-          document.getElementById("login-token").classList.add("show");
-          showMsg(
-            "login-msg",
-            "✓ Session token found — you can go to the app",
-            "ok",
-          );
+          location.href = APP_URL;
         }
       });
 

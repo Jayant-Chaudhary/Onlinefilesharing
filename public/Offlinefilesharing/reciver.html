@@ -1,0 +1,1124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>SecureDrop Offline — Receive</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+      :root {
+        --bg: #080810;
+        --s1: #0d0d18;
+        --s2: #13131f;
+        --s3: #1a1a28;
+        --bd: #22223a;
+        --bd2: #2d2d48;
+        --g: #00ff9d;
+        --gd: rgba(0, 255, 157, 0.08);
+        --gw: rgba(0, 255, 157, 0.22);
+        --amber: #f59e0b;
+        --red: #ef4444;
+        --purple: #a855f7;
+        --text: #e8eaf6;
+        --muted: #52526e;
+        --mono: "Space Mono", monospace;
+        --serif: "Instrument Serif", serif;
+        --sans: "DM Sans", sans-serif;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(0, 255, 157, 0.02) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 255, 157, 0.02) 1px, transparent 1px);
+        background-size: 52px 52px;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        height: 56px;
+        background: rgba(8, 8, 16, 0.92);
+        border-bottom: 1px solid var(--bd);
+        backdrop-filter: blur(20px);
+      }
+      .logo {
+        font-family: var(--mono);
+        font-size: 0.85rem;
+        color: var(--g);
+        letter-spacing: 0.08em;
+      }
+      .logo span {
+        color: var(--muted);
+      }
+      .nav-links {
+        display: flex;
+        gap: 4px;
+      }
+      .nl {
+        padding: 6px 13px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+      }
+      .nl:hover,
+      .nl.on {
+        background: var(--s2);
+        color: var(--text);
+      }
+      .offline-badge {
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        color: var(--amber);
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        padding: 3px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.08em;
+      }
+
+      main {
+        flex: 1;
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 24px;
+      }
+      .wrap {
+        width: 100%;
+        max-width: 440px;
+      }
+
+      /* states */
+      .state {
+        display: none;
+        animation: fadeUp 0.35s ease;
+      }
+      .state.active {
+        display: block;
+      }
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ── Scan state ── */
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--amber);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        margin-bottom: 14px;
+      }
+      .page-title {
+        font-family: var(--serif);
+        font-size: 2.6rem;
+        font-style: italic;
+        line-height: 1.05;
+        margin-bottom: 6px;
+      }
+      .page-sub {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--muted);
+        margin-bottom: 28px;
+        letter-spacing: 0.04em;
+        line-height: 1.8;
+      }
+
+      /* Progress tracker */
+      .progress-track {
+        background: var(--s1);
+        border: 1px solid var(--bd);
+        border-radius: 12px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+      }
+      .pt-label {
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        color: var(--muted);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+      .pt-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .pt-bar {
+        flex: 1;
+        background: var(--s3);
+        border-radius: 4px;
+        height: 4px;
+        overflow: hidden;
+      }
+      .pt-fill {
+        height: 100%;
+        background: var(--amber);
+        border-radius: 4px;
+        transition: width 0.4s ease;
+        width: 0%;
+      }
+      .pt-text {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--text);
+        white-space: nowrap;
+      }
+      .pt-chips {
+        display: flex;
+        gap: 4px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+      .chip {
+        width: 24px;
+        height: 24px;
+        border-radius: 5px;
+        border: 1px solid var(--bd2);
+        background: var(--s2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--mono);
+        font-size: 0.55rem;
+        color: var(--muted);
+        transition: all 0.3s;
+      }
+      .chip.scanned {
+        background: rgba(245, 158, 11, 0.15);
+        border-color: var(--amber);
+        color: var(--amber);
+      }
+      .chip.current {
+        background: var(--amber);
+        color: #000;
+        font-weight: 700;
+      }
+
+      /* Scanner */
+      .scan-btn {
+        width: 100%;
+        padding: 18px;
+        background: var(--s1);
+        border: 1.5px dashed var(--bd2);
+        border-radius: 18px;
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 0.95rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-align: center;
+        margin-bottom: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .scan-btn:hover {
+        border-color: var(--amber);
+        background: rgba(245, 158, 11, 0.04);
+      }
+      .scan-icon {
+        font-size: 2.2rem;
+      }
+      .scan-sub {
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        color: var(--muted);
+      }
+
+      #reader-wrap {
+        display: none;
+        margin-bottom: 16px;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--bd2);
+        position: relative;
+      }
+      #reader video {
+        border-radius: 0 !important;
+        border: none !important;
+      }
+      #reader__scan_region {
+        border: none !important;
+      }
+      #reader__dashboard {
+        background: var(--s2) !important;
+        border-top: 1px solid var(--bd) !important;
+        padding: 12px !important;
+      }
+      #reader__dashboard_section_swaplink {
+        color: var(--amber) !important;
+        font-family: var(--mono) !important;
+        font-size: 0.68rem !important;
+      }
+      #reader__status_span {
+        color: var(--muted) !important;
+        font-family: var(--mono) !important;
+        font-size: 0.65rem !important;
+      }
+      #reader__filescan_input {
+        display: none !important;
+      }
+
+      .scan-frame-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .sframe {
+        width: 160px;
+        height: 160px;
+        position: relative;
+      }
+      .sc {
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        border-color: var(--amber);
+        border-style: solid;
+      }
+      .sc.tl {
+        top: 0;
+        left: 0;
+        border-width: 2px 0 0 2px;
+      }
+      .sc.tr {
+        top: 0;
+        right: 0;
+        border-width: 2px 2px 0 0;
+      }
+      .sc.bl {
+        bottom: 0;
+        left: 0;
+        border-width: 0 0 2px 2px;
+      }
+      .sc.br {
+        bottom: 0;
+        right: 0;
+        border-width: 0 2px 2px 0;
+      }
+      .sline {
+        position: absolute;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--amber),
+          transparent
+        );
+        animation: scan 2s ease-in-out infinite;
+        top: 0;
+      }
+      @keyframes scan {
+        0% {
+          top: 0;
+          opacity: 1;
+        }
+        100% {
+          top: 100%;
+          opacity: 0.3;
+        }
+      }
+
+      .stop-btn {
+        width: 100%;
+        padding: 10px;
+        background: transparent;
+        border: 1px solid var(--bd);
+        border-radius: 8px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.65rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 16px;
+        letter-spacing: 0.04em;
+      }
+      .stop-btn:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+
+      /* scanned item */
+      .scan-toast {
+        background: rgba(245, 158, 11, 0.08);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 10px;
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--amber);
+        display: none;
+        animation: fadeUp 0.3s ease;
+      }
+      .scan-toast.show {
+        display: block;
+      }
+
+      /* decrypt button */
+      .decrypt-btn {
+        width: 100%;
+        padding: 15px;
+        background: var(--g);
+        color: #000;
+        border: none;
+        border-radius: 12px;
+        font-family: var(--sans);
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.25s;
+        display: none;
+      }
+      .decrypt-btn.show {
+        display: block;
+      }
+      .decrypt-btn:hover {
+        background: #00e88c;
+        box-shadow: 0 8px 28px var(--gw);
+      }
+
+      /* ── Decrypting state ── */
+      .proc-card {
+        background: var(--s1);
+        border: 1px solid var(--bd2);
+        border-radius: 18px;
+        padding: 40px 28px;
+        text-align: center;
+      }
+      .proc-icon {
+        font-size: 2.8rem;
+        display: block;
+        margin-bottom: 14px;
+        animation: pulse 1.4s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(1.08);
+          opacity: 0.7;
+        }
+      }
+      .proc-title {
+        font-family: var(--serif);
+        font-size: 1.8rem;
+        font-style: italic;
+        margin-bottom: 8px;
+      }
+      .proc-status {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--muted);
+        line-height: 2;
+        margin-bottom: 16px;
+      }
+      .prog-bar {
+        background: var(--s3);
+        border-radius: 4px;
+        height: 3px;
+        overflow: hidden;
+      }
+      .prog-fill {
+        height: 100%;
+        background: var(--g);
+        border-radius: 4px;
+        width: 0%;
+        transition: width 0.4s ease;
+      }
+
+      /* ── Success state ── */
+      .suc-card {
+        background: var(--s1);
+        border: 1px solid rgba(0, 255, 157, 0.2);
+        border-radius: 18px;
+        padding: 40px 28px;
+        text-align: center;
+      }
+      .suc-icon {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 14px;
+      }
+      .suc-title {
+        font-family: var(--serif);
+        font-size: 2rem;
+        font-style: italic;
+        margin-bottom: 6px;
+      }
+      .suc-sub {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--muted);
+        margin-bottom: 20px;
+        line-height: 1.8;
+      }
+      .file-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--gd);
+        border: 1px solid rgba(0, 255, 157, 0.15);
+        border-radius: 10px;
+        padding: 12px 20px;
+        margin-bottom: 20px;
+      }
+      .fc-name {
+        font-weight: 600;
+        font-size: 0.88rem;
+      }
+      .fc-size {
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        color: var(--muted);
+      }
+      .rbtn {
+        padding: 11px 24px;
+        background: var(--s2);
+        border: 1px solid var(--bd2);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 0.88rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .rbtn:hover {
+        border-color: var(--g);
+        color: var(--g);
+      }
+
+      /* ── Error state ── */
+      .err-card {
+        background: rgba(239, 68, 68, 0.05);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 18px;
+        padding: 40px 28px;
+        text-align: center;
+      }
+      .err-icon {
+        font-size: 2.8rem;
+        display: block;
+        margin-bottom: 14px;
+      }
+      .err-title {
+        font-family: var(--serif);
+        font-size: 1.8rem;
+        font-style: italic;
+        margin-bottom: 8px;
+        color: var(--red);
+      }
+      .err-msg {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--muted);
+        margin-bottom: 20px;
+        line-height: 1.8;
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="logo">SECURE<span>DROP</span></div>
+      <div class="nav-links">
+        <a class="nl" href="sender.html">Send</a>
+        <a class="nl on" href="receiver.html">Receive</a>
+        <a class="nl" href="../home.html">← Home</a>
+      </div>
+      <div class="offline-badge">OFFLINE</div>
+    </nav>
+
+    <main>
+      <div class="wrap">
+        <!-- ── SCAN STATE ── -->
+        <div class="state active" id="state-scan">
+          <div class="eyebrow">// offline receive</div>
+          <div class="page-title">Scan the<br />QR codes.</div>
+          <div class="page-sub">
+            Scan all QRs in order.<br />Decryption happens entirely in your
+            browser.
+          </div>
+
+          <!-- Progress tracker (shown after first scan) -->
+          <div class="progress-track" id="progressTrack" style="display: none">
+            <div class="pt-label">QRs scanned</div>
+            <div class="pt-row">
+              <div class="pt-bar"><div class="pt-fill" id="ptFill"></div></div>
+              <div class="pt-text" id="ptText">0 / ?</div>
+            </div>
+            <div class="pt-chips" id="ptChips"></div>
+          </div>
+
+          <!-- Camera scan button -->
+          <button class="scan-btn" id="scanBtn" onclick="startScan()">
+            <span class="scan-icon">📷</span>
+            <span style="font-weight: 600">Tap to scan next QR</span>
+            <span class="scan-sub"
+              >Opens camera · point at sender's screen</span
+            >
+          </button>
+
+          <!-- Scanner -->
+          <div id="reader-wrap">
+            <div id="reader"></div>
+            <div class="scan-frame-overlay">
+              <div class="sframe">
+                <div class="sline"></div>
+                <div class="sc tl"></div>
+                <div class="sc tr"></div>
+                <div class="sc bl"></div>
+                <div class="sc br"></div>
+              </div>
+            </div>
+          </div>
+          <button
+            class="stop-btn"
+            id="stopBtn"
+            style="display: none"
+            onclick="stopScan()"
+          >
+            ■ Stop Camera
+          </button>
+
+          <!-- Manual paste fallback -->
+          <div style="margin-top: 12px">
+            <div
+              style="
+                font-family: var(--mono);
+                font-size: 0.6rem;
+                color: var(--muted);
+                letter-spacing: 0.1em;
+                text-transform: uppercase;
+                margin-bottom: 8px;
+              "
+            >
+              — or paste QR data manually —
+            </div>
+            <textarea
+              id="manualPaste"
+              placeholder="Paste QR payload here (e.g. 1|3||chunk||keypart||iv||filetype||filename)"
+              style="
+                width: 100%;
+                padding: 10px 14px;
+                background: var(--s1);
+                border: 1px solid var(--bd2);
+                border-radius: 10px;
+                color: var(--text);
+                font-family: var(--mono);
+                font-size: 0.65rem;
+                resize: vertical;
+                min-height: 70px;
+                outline: none;
+                margin-bottom: 8px;
+                line-height: 1.6;
+              "
+            ></textarea>
+            <button
+              onclick="manualSubmit()"
+              style="
+                width: 100%;
+                padding: 10px;
+                background: var(--s2);
+                border: 1px solid var(--bd2);
+                border-radius: 8px;
+                color: var(--amber);
+                font-family: var(--mono);
+                font-size: 0.68rem;
+                cursor: pointer;
+                transition: all 0.2s;
+                letter-spacing: 0.04em;
+              "
+            >
+              Submit Pasted QR Data
+            </button>
+          </div>
+
+          <!-- Last scanned feedback -->
+          <div class="scan-toast" id="scanToast"></div>
+
+          <!-- Decrypt button — appears when all QRs collected -->
+          <button class="decrypt-btn" id="decryptBtn" onclick="startDecrypt()">
+            🔓 Decrypt &amp; Save File
+          </button>
+        </div>
+
+        <!-- ── PROCESSING STATE ── -->
+        <div class="state" id="state-proc">
+          <div class="proc-card">
+            <span class="proc-icon">🔐</span>
+            <div class="proc-title">Decrypting…</div>
+            <div class="proc-status" id="procStatus">Reassembling key…</div>
+            <div class="prog-bar">
+              <div class="prog-fill" id="progFill"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SUCCESS STATE ── -->
+        <div class="state" id="state-success">
+          <div class="suc-card">
+            <span class="suc-icon">✅</span>
+            <div class="suc-title">File received!</div>
+            <div class="suc-sub">
+              Decrypted in your browser.<br />No data left your device.
+            </div>
+            <div class="file-chip">
+              <span id="sucIcon">📄</span>
+              <div>
+                <div class="fc-name" id="sucName">—</div>
+                <div class="fc-size" id="sucSize">—</div>
+              </div>
+            </div>
+            <br />
+            <button class="rbtn" onclick="reset()">← Receive another</button>
+          </div>
+        </div>
+
+        <!-- ── ERROR STATE ── -->
+        <div class="state" id="state-error">
+          <div class="err-card">
+            <span class="err-icon">⚠️</span>
+            <div class="err-title">Decryption failed</div>
+            <div class="err-msg" id="errMsg">—</div>
+            <button class="rbtn" onclick="reset()">← Try again</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DEBUG CONSOLE (remove in production) ── -->
+      <div
+        style="
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          z-index: 999;
+          background: #0a0a14;
+          border-top: 1px solid #22223a;
+          max-height: 220px;
+          overflow-y: auto;
+          padding: 10px 14px;
+        "
+        id="debugBox"
+      >
+        <div
+          style="
+            font-family: monospace;
+            font-size: 0.6rem;
+            color: #52526e;
+            margin-bottom: 6px;
+            letter-spacing: 0.1em;
+          "
+        >
+          // DEBUG LOG — remove in production
+        </div>
+      </div>
+    </main>
+
+    <script>
+      // ═══════════════════════════════════════════════════════════════
+      // OFFLINE RECEIVER — DEBUG BUILD
+      // ═══════════════════════════════════════════════════════════════
+
+      let scanner = null;
+      let collected = {};
+      let totalQRs = null;
+
+      // ── On-screen debug log (visible on phone) ────────────────────
+      function dbg(msg, color) {
+        console.log(msg);
+        const box = document.getElementById("debugBox");
+        if (!box) return;
+        const line = document.createElement("div");
+        line.style.cssText = `color:${color || "#00ff9d"};margin-bottom:3px;word-break:break-all;`;
+        line.textContent = "[" + new Date().toLocaleTimeString() + "] " + msg;
+        box.appendChild(line);
+        box.scrollTop = box.scrollHeight;
+      }
+
+      // ── Scanner ───────────────────────────────────────────────────
+      function startScan() {
+        dbg("startScan() called");
+        document.getElementById("scanBtn").style.display = "none";
+        document.getElementById("reader-wrap").style.display = "block";
+        document.getElementById("stopBtn").style.display = "block";
+
+        dbg("Creating Html5Qrcode instance…");
+        scanner = new Html5Qrcode("reader");
+
+        scanner
+          .start(
+            { facingMode: "environment" },
+            { fps: 5, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+            onQRScanned,
+            (errMsg) => {
+              /* per-frame decode errors — normal, suppress */
+            },
+          )
+          .then(() => {
+            dbg("✓ Camera started successfully");
+          })
+          .catch((err) => {
+            dbg("✗ Camera start failed: " + err, "#ef4444");
+            showState("error");
+            document.getElementById("errMsg").textContent =
+              "Camera error: " + err;
+          });
+      }
+
+      function stopScan() {
+        dbg("stopScan() called");
+        if (scanner) {
+          scanner.stop().catch(() => {});
+          scanner = null;
+        }
+        document.getElementById("reader-wrap").style.display = "none";
+        document.getElementById("stopBtn").style.display = "none";
+        document.getElementById("scanBtn").style.display = "flex";
+      }
+
+      function onQRScanned(text) {
+        dbg("QR raw data received (" + text.length + " chars)");
+        dbg(
+          "Raw preview: " +
+            text.substring(0, 80) +
+            (text.length > 80 ? "…" : ""),
+        );
+
+        if (scanner) scanner.pause();
+
+        try {
+          // Format: "INDEX|TOTAL||CHUNK||KEYPART||IV||FILETYPE||FILENAME"
+          const parts = text.split("||");
+          dbg("Split by '||' → " + parts.length + " parts");
+          parts.forEach((p, i) =>
+            dbg(
+              "  part[" + i + "] len=" + p.length + " → " + p.substring(0, 30),
+            ),
+          );
+
+          if (parts.length < 4) {
+            throw new Error(
+              "Expected ≥4 parts, got " +
+                parts.length +
+                ". Raw start: " +
+                text.substring(0, 80),
+            );
+          }
+
+          const [indexTotal, chunk, keyPart, iv, fileType, fileName] = parts;
+          dbg("indexTotal: '" + indexTotal + "'");
+          dbg("chunk length: " + (chunk || "").length);
+          dbg(
+            "keyPart (" +
+              (keyPart || "").length +
+              "): " +
+              (keyPart || "").substring(0, 16) +
+              "…",
+          );
+          dbg("iv: " + (iv ? iv.substring(0, 16) + "…" : "(empty)"));
+          dbg("fileType: '" + (fileType || "(empty)") + "'");
+          dbg("fileName: '" + (fileName || "(empty)") + "'");
+
+          // INDEX|TOTAL uses single pipe
+          const pipeIdx = indexTotal.indexOf("|");
+          if (pipeIdx === -1)
+            throw new Error(
+              "No '|' found in '" + indexTotal + "' — wrong format",
+            );
+          const indexStr = indexTotal.substring(0, pipeIdx);
+          const totalStr = indexTotal.substring(pipeIdx + 1);
+          const index = parseInt(indexStr);
+          const total = parseInt(totalStr);
+          dbg("Parsed index=" + index + " total=" + total);
+
+          if (isNaN(index) || isNaN(total))
+            throw new Error(
+              "index='" + indexStr + "' total='" + totalStr + "' — one is NaN",
+            );
+
+          totalQRs = total;
+          collected[index] = { chunk, keyPart, iv, fileType, fileName };
+          dbg(
+            "✓ Stored QR " +
+              index +
+              ". Collected so far: " +
+              Object.keys(collected).join(","),
+            "#f59e0b",
+          );
+
+          showScanToast(`✓ QR ${index} of ${total} scanned`);
+          updateProgress();
+
+          const scannedCount = Object.keys(collected).length;
+          if (scannedCount >= total) {
+            dbg("✓ ALL QRs collected! Ready to decrypt.", "#00ff9d");
+            stopScan();
+            document.getElementById("decryptBtn").classList.add("show");
+            document.getElementById("scanBtn").style.display = "none";
+            showScanToast(`✓ All ${total} QRs collected — ready to decrypt!`);
+          } else {
+            dbg("Need " + (total - scannedCount) + " more QR(s). Resuming…");
+            setTimeout(() => {
+              if (scanner) scanner.resume();
+            }, 1200);
+          }
+        } catch (e) {
+          dbg("✗ Parse error: " + e.message, "#ef4444");
+          showScanToast("⚠ Could not read QR: " + e.message);
+          setTimeout(() => {
+            if (scanner) scanner.resume();
+          }, 1000);
+        }
+      }
+
+      function updateProgress() {
+        const total = totalQRs || "?";
+        const scanned = Object.keys(collected).length;
+
+        document.getElementById("progressTrack").style.display = "block";
+        document.getElementById("ptFill").style.width = totalQRs
+          ? (scanned / totalQRs) * 100 + "%"
+          : "0%";
+        document.getElementById("ptText").textContent = `${scanned} / ${total}`;
+
+        // Render chips
+        if (totalQRs) {
+          const chips = document.getElementById("ptChips");
+          chips.innerHTML = "";
+          for (let i = 1; i <= totalQRs; i++) {
+            const chip = document.createElement("div");
+            chip.className = "chip" + (collected[i] ? " scanned" : "");
+            chip.textContent = i;
+            chips.appendChild(chip);
+          }
+        }
+      }
+
+      function manualSubmit() {
+        const text = document.getElementById("manualPaste").value.trim();
+        if (!text) {
+          dbg("manualSubmit: empty input", "#ef4444");
+          return;
+        }
+        dbg("Manual paste submitted (" + text.length + " chars)");
+        document.getElementById("manualPaste").value = "";
+        onQRScanned(text);
+      }
+
+      function showScanToast(msg) {
+        const el = document.getElementById("scanToast");
+        el.textContent = msg;
+        el.classList.add("show");
+      }
+
+      // ── Decrypt ───────────────────────────────────────────────────
+      async function startDecrypt() {
+        dbg("startDecrypt() called");
+        showState("proc");
+        setProc(10, "Reassembling encryption key…");
+
+        try {
+          const indices = Object.keys(collected)
+            .map(Number)
+            .sort((a, b) => a - b);
+          dbg("Indices collected: " + indices.join(", "));
+
+          const fullChunk = indices.map((i) => collected[i].chunk).join("");
+          const fullKeyHex = indices.map((i) => collected[i].keyPart).join("");
+          const iv = collected[1].iv;
+          const fileType = collected[1].fileType || "application/octet-stream";
+          const fileName = collected[1].fileName || "decrypted-file";
+
+          dbg("fullKeyHex length: " + fullKeyHex.length + " (need 64)");
+          dbg(
+            "iv present: " + (iv ? "YES → " + iv.substring(0, 12) + "…" : "NO"),
+            iv ? "#f59e0b" : "#ef4444",
+          );
+          dbg("fileName: " + fileName);
+          dbg("fullChunk length: " + fullChunk.length + " chars");
+
+          if (!iv)
+            throw new Error(
+              "IV missing — QR #1 was not scanned or parsed incorrectly",
+            );
+          if (fullKeyHex.length !== 64)
+            throw new Error(
+              "Key hex is " +
+                fullKeyHex.length +
+                " chars, expected 64. Missing QRs?",
+            );
+
+          setProc(30, "Importing AES key…");
+          const keyBytes = new Uint8Array(
+            fullKeyHex.match(/.{1,2}/g).map((b) => parseInt(b, 16)),
+          );
+          const aesKey = await crypto.subtle.importKey(
+            "raw",
+            keyBytes,
+            { name: "AES-GCM" },
+            false,
+            ["decrypt"],
+          );
+          dbg("✓ AES key imported");
+
+          setProc(50, "Decoding + decrypting…");
+          const cipherBytes = Uint8Array.from(atob(fullChunk), (c) =>
+            c.charCodeAt(0),
+          );
+          dbg("Ciphertext: " + cipherBytes.length + " bytes");
+
+          const ivBytes = new Uint8Array(
+            iv.match(/.{1,2}/g).map((b) => parseInt(b, 16)),
+          );
+          const decrypted = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: ivBytes },
+            aesKey,
+            cipherBytes,
+          );
+          dbg("✓ Decrypted: " + decrypted.byteLength + " bytes");
+
+          setProc(75, "Decompressing…");
+          const stream = new DecompressionStream("gzip");
+          const writer = stream.writable.getWriter();
+          writer.write(new Uint8Array(decrypted));
+          writer.close();
+          const decompressed = await new Response(
+            stream.readable,
+          ).arrayBuffer();
+          dbg("✓ Decompressed: " + decompressed.byteLength + " bytes");
+
+          setProc(100, "Done!");
+          const blob = new Blob([decompressed], { type: fileType });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = fileName;
+          a.click();
+          URL.revokeObjectURL(url);
+          dbg("✓ Download triggered: " + fileName, "#00ff9d");
+
+          setTimeout(() => {
+            document.getElementById("sucIcon").textContent = fileIcon(fileName);
+            document.getElementById("sucName").textContent = fileName;
+            document.getElementById("sucSize").textContent = fmtSize(
+              decompressed.byteLength,
+            );
+            showState("success");
+          }, 500);
+        } catch (e) {
+          dbg("✗ ERROR: " + e.message, "#ef4444");
+          document.getElementById("errMsg").innerHTML =
+            e.message +
+            "<br><small>Check debug log at bottom of screen.</small>";
+          showState("error");
+        }
+      }
+
+      // ── Helpers ───────────────────────────────────────────────────
+      function showState(name) {
+        document
+          .querySelectorAll(".state")
+          .forEach((s) => s.classList.remove("active"));
+        document.getElementById("state-" + name).classList.add("active");
+      }
+      function setProc(pct, msg) {
+        document.getElementById("progFill").style.width = pct + "%";
+        document.getElementById("procStatus").textContent = msg;
+      }
+      function reset() {
+        collected = {};
+        totalQRs = null;
+        stopScan();
+        document.getElementById("progressTrack").style.display = "none";
+        document.getElementById("decryptBtn").classList.remove("show");
+        document.getElementById("scanBtn").style.display = "flex";
+        document.getElementById("scanToast").classList.remove("show");
+        showState("scan");
+      }
+      function fmtSize(b) {
+        return b < 1024
+          ? b + " B"
+          : b < 1048576
+            ? (b / 1024).toFixed(1) + " KB"
+            : (b / 1048576).toFixed(1) + " MB";
+      }
+      function fileIcon(n) {
+        const e = (n || "").split(".").pop().toLowerCase();
+        return (
+          {
+            pdf: "📄",
+            png: "🖼",
+            jpg: "🖼",
+            jpeg: "🖼",
+            mp4: "🎬",
+            mp3: "🎵",
+            zip: "📦",
+            doc: "📝",
+            docx: "📝",
+            xls: "📊",
+            xlsx: "📊",
+            txt: "📃",
+          }[e] || "📁"
+        );
+      }
+    </script>
+  </body>
+</html>

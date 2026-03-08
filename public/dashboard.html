@@ -674,7 +674,7 @@
     <nav>
       <div class="logo">SECURE<span>DROP</span></div>
       <div class="nav-r">
-        <a class="nav-btn" href="index.html">Send</a>
+        <a class="nav-btn" href="send.html">Send</a>
         <a class="nav-btn" href="receive.html">Receive</a>
         <a class="nav-btn on" href="dashboard.html">Vault</a>
         <div class="user-pill">
@@ -698,7 +698,7 @@
       <!-- Files -->
       <div class="sec-head">
         <div class="sec-title">Your Vault</div>
-        <a class="new-btn" href="index.html">+ New File</a>
+        <a class="new-btn" href="send.html">+ New File</a>
       </div>
       <div class="grid" id="grid">
         <div class="skel"></div>
@@ -762,10 +762,33 @@
     <div class="toast" id="toast"></div>
 
     <script>
-      const BASE = "http://localhost:5001/api";
+      const BASE = window.location.origin + "/api";
       const APP = window.location.origin;
       let tok = sessionStorage.getItem("sd_access_token") || "";
       if (!tok) location.href = "login.html";
+      // ── Auto-refresh token 1 min before expiry ───────────────────
+      async function refreshToken() {
+        try {
+          const r = await fetch(window.location.origin + "/api/auth/refresh", {
+            method: "POST",
+            credentials: "include",
+          });
+          if (r.ok) {
+            const { accessToken } = await r.json();
+            sessionStorage.setItem("sd_access_token", accessToken);
+            tok = accessToken;
+            console.log("Token refreshed");
+          } else {
+            sessionStorage.clear();
+            location.href = "login.html";
+          }
+        } catch {
+          sessionStorage.clear();
+          location.href = "login.html";
+        }
+      }
+      // Refresh every 14 minutes (token expires in 15m)
+      setInterval(refreshToken, 14 * 60 * 1000);
 
       let curShareId = null,
         curShareType = "private";
@@ -811,7 +834,7 @@
         const grid = document.getElementById("grid");
         grid.innerHTML = "";
         if (!files.length) {
-          grid.innerHTML = `<div class="empty"><span class="empty-icon">🗄</span>No files yet.<br><a href="index.html" style="color:var(--g);text-decoration:none">Upload your first file →</a></div>`;
+          grid.innerHTML = `<div class="empty"><span class="empty-icon">🗄</span>No files yet.<br><a href="send.html" style="color:var(--g);text-decoration:none">Upload your first file →</a></div>`;
           return;
         }
         files.forEach((f, i) => {
